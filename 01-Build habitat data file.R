@@ -1,7 +1,45 @@
-
-####
-#### THIS FILE IS NOW DEFUNCT - FILE BUILDING AND ANALYSES PERFORMED IN 01-Build habitat.., 
-#### 02-Habitat analysis.., etc
+###
+### THIS FILE TAKES THE RAW HABITAT DATA (from QGIS) AND COLLATES ALL INTO
+###  A SINGLE MASTER HABITAT FILE, LISTING DATA PER SITE-TRANSECT-SECTION.
+### 'data/TRANSECT SECTION HABITAT DATA 2013 and 2014 MASTER.csv'
+###
+###
+### Metadata for resulting file:
+###
+### SITE      = Site name, for all SWT sites surveyed 2013-2014.
+### TRANSECT  = Transect identifier within site.
+### SECTION   = Transect section identifier, running away from the turbine location:
+###             1 = 0-100m
+###             2 = 100-200m
+###             3 = 200-300m
+###             4 = 300-400m
+###             5 = 400-500m
+### MID_X     = BNG X coordinate for the midpoint of the transect section
+### MID_Y     = BNG Y coordinate for the midpoint of the transect section
+### AREA_M2   = Area (in m2) of transect section
+###  (The following columns use terms as per OS Topo Land cover maps)
+### BUILD     = Area of buildings (m2).
+### CTREE     = Area of coniferous trees (m2).
+### GREYS     = Greyspace, i.e. area of 'General surface' including 'multi-surface' (m2).
+### LANDF     = Area of 'landform' (m2).
+### NTREE     = Area of non-coniferous trees (m2).
+### RDTRK     = Area of road or tracks (m2).
+### ROADS     = Area of roadside (m2).
+### RGRAS     = Area of rough grassland (m2).
+### SCRUB     = Area of scrubland (m2).
+### WATER     = Area of inland water (m2).
+###  (In the above, classifcations Archway, Cliff, Heath, Marsh Reeds or Saltmarsh, Pylon and Slope also
+###   occurred but were ignored.
+###   Moreover, in cases where the dTerm or descGroup fields in the OS Topo data contained more than
+###   one classifier, only the first was picked and allocated to the feature.)
+### LLENGTH   = Total length of linear features (m) in transect section, as obtained from OS Topo data.
+###  (The above includes descGroup classifiers Building, General Feature, General Surface, Inland water, 
+###   Landform, Network closing geometry, Path, Road or Track; i.e. all line features in OS Topo data.)
+### D_LIN     = Mean distance to any linear feature (m)
+### D_BUI     = Mean distance to any building feature (m)
+### D_WAT     = Mean distance to any (inland) water feature (m)
+### D_TRE     = Mean distance to any tree (coniferous or non-coniferous) feature (m)
+###  (Definition of terms in above 4 as per OS Topo data)
 
 library(xlsx)
 library(lattice)
@@ -99,13 +137,6 @@ sdat2 <- cbind(sdat, harea3[match(sdat$SiteTBuffer,row.names(harea3)),])
 row.names(sdat2) <- NULL
 #write.csv(sdat2, 'data/Temp/Transect Section habitat data 2013 and 2014 WORKING.csv')
 
-### Match habitat AREA data per section to BATS data:
-# First create Site/Transect/Section identifier in bats data.
-bats$SiteTBuffer <- with(bats, paste(SITE, TRSCT, SECTION, sep='-'))
-# These are the SiteTBuffer ID's that occur in the bats data but not in the site/transect/section hab data:
-bats[!(bats$SiteTBuffer %in% sdat2$SiteTBuffer),'SiteTBuffer']
-# !!! The list of transect sections above are defunct ones that need to be ignored in later analysis!
-
 
 ###
 ###
@@ -162,4 +193,6 @@ sdat3$SiteTBuffer <- NULL
 
 ###
 ###
-### STORE 
+### STORE MASTER HABITAT FILE PER TRANSECT SECTION:
+
+#write.csv(sdat3, 'data/TRANSECT SECTION HABITAT DATA 2013 and 2014 MASTER.csv', row.names=F)
