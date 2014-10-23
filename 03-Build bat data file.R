@@ -23,6 +23,10 @@ bats <- read.xlsx('data/Bat data per section 2013 and 2014.xlsx',sheetIndex=1,he
 ### LOAD site data:
 site <- read.xlsx('data/Turbine coordinates 2013 and 2014.xlsx',sheetIndex=1,header=T)
 
+###
+### LOAD habitat data:
+hab <- read.csv('data/TRANSECT SECTION HABITAT DATA 2013 and 2014 MASTER.csv',header=T)
+
 ### 'clean' bat data:
 
 # Wind speed as numeric:
@@ -30,6 +34,10 @@ bats$WINDS <- as.numeric(as.vector(bats$WINDS))
 
 # fSECTION is transect section as factor:
 bats$fSECTION <- factor(bats$SECTION)
+
+# Make sure SITE and TRSCT are factors:
+bats$SITE <- factor(bats$SITE)
+bats$TRSCT <- factor(bats$TRSCT)
 
 # Make 'truetime' from s_dtime:
 bats$s_dtime <- strptime(bats$s_dtime, format='%Y-%m-%d %H:%M:%S')
@@ -69,8 +77,11 @@ site_t$SITE[!(levels(site_t$SITE) %in% bats$SITE)]
 # and vv:
 !(levels(bats$SITE) %in% site_t$SITE)
 # Match:
-
 bats$NOTURB <- site_t$NOTURB[match(bats$SITE, site_t$SITE)]
+
+### Match section area sizes
+bats$AREA_M2 <- hab$AREA_M2[match(bats$SITE, hab$SITE)]
+bats$AREA_ha <- bats$AREA_M2/10000
 
 # Total number of passes:
 bats$PASSES <- bats$SOPPIP+bats$COMPIP+bats$MYOTI+bats$PIP+bats$PAUR+bats$NOCTU
@@ -78,6 +89,12 @@ bats$PASSES <- bats$SOPPIP+bats$COMPIP+bats$MYOTI+bats$PIP+bats$PAUR+bats$NOCTU
 ### Match habitat data
 
 ### Match altitude data?
+
+### Remove NW transect for Islabank (too replicative)?
+bats <- bats[!(bats$SITE=='Islabank' & bats$TRSCT=='NW'),]
+
+### Need to remove all 'sections 6-8'
+bats <- bats[bats$SECTION<6,]
 
 ### Write output for analysis:
 write.csv(bats,'data/BAT DATA 2013 and 2014 MASTER.csv',row.names=F)
