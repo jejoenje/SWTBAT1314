@@ -72,6 +72,8 @@ round(sum(hab$pWATER!=0)/length(hab$pWATER),3)
 
 hab$pTREE <- hab$pCTREE+hab$pNTREE
 
+### 6. This leaves us with pBUILD, pTREE, pRDTRK, pROADS, and pGRAS.
+
 ### Now what about line length (LLENG)?
 
 # First express this as a measure of 'edge density' by dividing by the total area.

@@ -19,6 +19,10 @@ library(plyr)
 ### LOAD bat data:
 bats <- read.xlsx('data/Bat data per section 2013 and 2014.xlsx',sheetIndex=1,header=T)
 
+###
+### LOAD site data:
+site <- read.xlsx('data/Turbine coordinates 2013 and 2014.xlsx',sheetIndex=1,header=T)
+
 ### 'clean' bat data:
 
 # Wind speed as numeric:
@@ -52,3 +56,28 @@ temp3 <- data.frame(temp, as.vector(temp1), as.vector(temp2))
 # Now work out which of the two above differences in minutes is the smallest in absolute terms, 
 #  and return that difference.
 bats$TTMIDN <- apply(as.matrix(temp3[,2:3]),1,function(x) { x[abs(x)==min(abs(x))] })
+
+
+# Find and match the number of turbines per site:
+site2 <- subset(site, select=c('SITE','T'))
+site3 <- site2[site2$T!='Mid',]
+site3$SITE <- factor(as.vector(site3$SITE))
+site_t <- ddply(site3, .(SITE), nrow)
+names(site_t) <- c('SITE','NOTURB')
+# Check if site names in site_t correspond to those in bats:
+site_t$SITE[!(levels(site_t$SITE) %in% bats$SITE)]
+# and vv:
+!(levels(bats$SITE) %in% site_t$SITE)
+# Match:
+
+bats$NOTURB <- site_t$NOTURB[match(bats$SITE, site_t$SITE)]
+
+# Total number of passes:
+bats$PASSES <- bats$SOPPIP+bats$COMPIP+bats$MYOTI+bats$PIP+bats$PAUR+bats$NOCTU
+
+### Match habitat data
+
+### Match altitude data?
+
+### Write output for analysis:
+write.csv(bats,'data/BAT DATA 2013 and 2014 MASTER.csv',row.names=F)
