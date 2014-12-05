@@ -73,6 +73,13 @@ round(sum(hab$pWATER!=0)/length(hab$pWATER),3)
 hab$pTREE <- hab$pCTREE+hab$pNTREE
 
 ### 6. This leaves us with pBUILD, pTREE, pRDTRK, pROADS, and pGRAS.
+par(mfrow=c(2,3))
+hist(hab$pBUILD)
+hist(hab$pTREE)
+hist(hab$pRDTRK)
+hist(hab$pROADS)
+hist(hab$pGRAS)
+
 
 ### Now what about line length (LLENG)?
 
@@ -92,11 +99,14 @@ hist(hab$D_BUI, breaks=100)
 hist(hab$D_WAT, breaks=100)
 hist(hab$D_TRE, breaks=100)
 
-
 ### Prepare data for PCA no. 1:
 hab2 <- subset(hab, select=c('pBUILD','pTREE','pRDTRK',
                              'pROADS','pRGRAS','EDGED',
                              'D_LIN','D_BUI','D_WAT','D_TRE'))
+
+### Check out some of the correlations in this subset of hab variables:
+library(corrplot)
+corrplot(hab2, type='upper')
 
 ### Run PCA:
 hab_pca1 <- prcomp(hab2, scale=T, center=T)
@@ -132,12 +142,10 @@ hab_pca_scores1
 #  Longer distance from water
 # == Dry woodlands
 
-
-### Have a look at the correlation within this subset of habitat data:
-library(corrplot)
-cm_hab2 <- cor(hab2)
-corrplot(cm_hab2, method='circle')
-
+### Add first PCA scores to dataset:
+hab <- cbind(hab, hab_pca1$x[,1:4])
+names(hab)[(ncol(hab)-3):ncol(hab)] <- paste(names(hab)[(ncol(hab)-3):ncol(hab)],'a',sep='')
+# These are now scores PC1a-PC4a.
 
 ### Prepare data for PCA no. 2:
 hab3 <- subset(hab, select=c('EDGED','D_LIN','D_BUI','D_WAT','D_TRE'))
@@ -175,3 +183,8 @@ hab_pca_scores2
 #  Longer distance to linear features
 # == 'Dry habitat near trees'
 
+
+### Prepare hab data for export to bat data:
+hab_exp <- hab[,c(row.names(hab_pca1$rotation),"PC1a","PC2a","PC3a",'PC4a','AREA_M2')]
+hab_exp <- data.frame(id=paste(hab$SITE,hab$TRANSECT,hab$SECTION,sep='-'), hab_exp)
+write.csv(hab_exp, 'data/TRANSECT SECTION HABITAT DATA 2013 and 2014 PROCESSED.csv', row.names=F)
