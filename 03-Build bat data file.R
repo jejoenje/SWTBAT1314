@@ -24,8 +24,12 @@ bats <- read.xlsx('data/Bat data per section 2013 and 2014.xlsx',sheetIndex=1,he
 site <- read.xlsx('data/Turbine coordinates 2013 and 2014.xlsx',sheetIndex=1,header=T)
 
 ###
+### LOAD transect section data:
+sections <- read.xlsx('data/Transect section data 2013 and 2014.xlsx', sheetIndex=1, header=T)
+
+###
 ### LOAD habitat data:
-hab <- read.csv('data/TRANSECT SECTION HABITAT DATA 2013 and 2014 MASTER.csv',header=T)
+hab <- read.csv('data/TRANSECT SECTION HABITAT DATA 2013 and 2014 PROCESSED.csv',header=T)
 
 ### 'clean' bat data:
 
@@ -79,22 +83,86 @@ site_t$SITE[!(levels(site_t$SITE) %in% bats$SITE)]
 # Match:
 bats$NOTURB <- site_t$NOTURB[match(bats$SITE, site_t$SITE)]
 
-### Match section area sizes
-bats$AREA_M2 <- hab$AREA_M2[match(bats$SITE, hab$SITE)]
-bats$AREA_ha <- bats$AREA_M2/10000
-
 # Total number of passes:
 bats$PASSES <- bats$SOPPIP+bats$COMPIP+bats$MYOTI+bats$PIP+bats$PAUR+bats$NOCTU
 
+# Total no. of PIPISTRELLUS passes:
+bats$ALL_PIPS <- bats$COMPIP+bats$SOPPIP+bats$PIP
+
+# Total no. of 'other' (NON-PIPISTRELLUS: MYOTIS SP., P. AURITUS, N. NOCTULA):
+bats$ALL_OTHER <- bats$MYOTI+bats$PAUR+bats$NOCTU
+
+# Remove NW transect for Islabank (too replicative)?
+bats <- bats[!(bats$SITE=='Islabank' & bats$TRSCT=='NW'),]
+
+# Remove all 'sections 6-8' (only done at few sites, not comparable).
+bats <- bats[bats$SECTION<6,]
+
+# Ignore some specific transects/sections that weren't done consistently/only once:
+bats <- bats[!(bats$SITE=='Redlands' & bats$TRSCT=='E'),]
+bats <- bats[!(bats$SITE=='Letham Far North T2' & bats$TRSCT=='NW' & bats$SECTION=='5'),]
+bats <- bats[!(bats$SITE=='Mid Cambushinnie' & bats$TRSCT=='S' & bats$SECTION=='5'),]
+bats <- bats[!(bats$SITE=='Nisbet Hill' & bats$TRSCT=='N' & bats$SECTION=='5'),]
+bats <- bats[!(bats$SITE=='Wester Essendy' & bats$TRSCT=='W' & bats$SECTION=='4'),]
+bats <- droplevels(bats)
+
 ### Match habitat data
+bats$id <- paste(bats$SITE, bats$TRSCT, bats$SECTION, sep='-')
+bats <- merge(bats, hab, 'id')
+bats$AREA_ha <- bats$AREA_M2/10000
+
+### Match coordinates:
+sections$id <- paste(sections$SITE, sections$TRANSECT, sections$SECTION, sep='-')
+sections2 <- subset(sections, select=c('id','MID_X','MID_Y'))
+bats <- merge(bats, sections2, 'id')
 
 ### Match altitude data?
 
-### Remove NW transect for Islabank (too replicative)?
-bats <- bats[!(bats$SITE=='Islabank' & bats$TRSCT=='NW'),]
+### Calculate standardised wind speed per site/visit:
+out <- as.data.frame(NULL)
+for(i in 1:nlevels(bats$SURVEYID)) {
+  survid <- bats[bats$SURVEYID==levels(bats$SURVEYID)[i],]
+  out <- rbind(out, data.frame(SURVEYID=survid$SURVEYID,
+                               TRSCT=survid$TRSCT,
+                               SECTION=survid$SECTION,
+                               sWINDS=as.vector(scale(survid$WINDS))))
+}
+out$id2 <- paste(out$SURVEYID, out$TRSCT, out$SECTION, sep='-')
+out <- subset(out, select=c('id2','sWINDS'))
+bats$id2 <- paste(bats$SURVEYID, bats$TRSCT, bats$SECTION, sep='-')
+bats <- merge(bats, out, 'id2')
+bats$id <- NULL
+bats$id2 <- NULL
 
-### Need to remove all 'sections 6-8'
-bats <- bats[bats$SECTION<6,]
+### Which sections are smaller than half the "supposed" size (1ha)?
+bats[bats$AREA_M2<5000,]
+### Ignore the following "sections", as they are artefacts of the GIS transect plan
+###  and don't constitute formal 'whole' sections:
+### - Ferrygate-W-5
+### - Letham Far North T2-W-5
+### - Mosshouses N-4
+### - Mosshouses NE-5
+### - Mosshouses SW-5
+### - Whitehills SE-4
+### - Whitehills W-5
+bats <- bats[!(bats$AREA_M2<5000),]
+bats <- droplevels(bats)
+
+### Which sections are more than twice the "supposed" size (1ha)?
+test <- bats[bats$AREA_M2>20000,]
+test <- subset(test, select=c('SITE','TRSCT','SECTION','PASSES'))
+test <- unique(test)
+test
+### All the following are retained:
+### - East Foturtune N-5; perpendicular to transect dir
+### - Mosshouses-SW-3; perpendicular to transect dir
+### - Nisbet Hill-N-3; perpendicular to transect dir
+### - Park Cottage-E-4; perpendicular to transect dir
+### - Redlands-N-3; ; perpendicular to transect dir
+### - Sauchie Farm-E-5; perpendicular to transect dir
+### - Stewart House-N-3; perpendicular to transect dir
+### - West Lodge Balmule-S-2; perpendicular to transect dir
+### - Wester Essendy-N-4; perpendicular to transect dir
 
 ### Write output for analysis:
 write.csv(bats,'data/BAT DATA 2013 and 2014 MASTER.csv',row.names=F)
