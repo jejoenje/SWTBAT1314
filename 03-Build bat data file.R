@@ -31,10 +31,18 @@ sections <- read.xlsx('data/Transect section data 2013 and 2014.xlsx', sheetInde
 ### LOAD habitat data:
 hab <- read.csv('data/TRANSECT SECTION HABITAT DATA 2013 and 2014 PROCESSED.csv',header=T)
 
+###
+### LOAD extra weather data:
+weather13 <- read.csv('data/Grangemouth daily temp data 2013.csv', header=T)
+weather14 <- read.csv('data/Grangemouth daily temp data 2014.csv', header=T)
+
 ### 'clean' bat data:
 
 # Wind speed as numeric:
 bats$WINDS <- as.numeric(as.vector(bats$WINDS))
+
+# TEMP as numeric:
+bats$TEMP <- as.numeric(as.vector(bats$TEMP))
 
 # fSECTION is transect section as factor:
 bats$fSECTION <- factor(bats$SECTION)
@@ -163,6 +171,33 @@ test
 ### - Stewart House-N-3; perpendicular to transect dir
 ### - West Lodge Balmule-S-2; perpendicular to transect dir
 ### - Wester Essendy-N-4; perpendicular to transect dir
+
+### Match external min air temp data:
+weather <- rbind(weather13, weather14)
+weather <- subset(weather, select=c('ob_end_time','min_air_temp','min_air_temp_q'))
+weather <- weather[weather$min_air_temp==1,]
+weather$DATE <- format(strptime(as.vector(weather$ob_end_time), '%d/%m/%Y %H:%M'),'%Y-%m-%d')
+weather2 <- subset(weather, select=c('DATE','min_air_temp'))
+weather2$cdate <- as.character(weather2$DATE)
+weather2$DATE <- NULL
+bats$cdate <- as.character(bats$DATE)
+bats <- merge(bats, weather2, 'cdate')
+bats$cdate <- NULL
+
+### Match external max air temp data:
+weather <- rbind(weather13, weather14)
+weather <- subset(weather, select=c('ob_end_time','max_air_temp','max_air_temp_q'))
+weather <- weather[weather$max_air_temp_q==1,]
+weather$DATE <- format(strptime(as.vector(weather$ob_end_time), '%d/%m/%Y %H:%M'),'%Y-%m-%d')
+weather2 <- subset(weather, select=c('DATE','max_air_temp'))
+weather2$cdate <- as.character(weather2$DATE)
+weather2$DATE <- NULL
+bats$cdate <- as.character(bats$DATE)
+bats <- merge(bats, weather2, 'cdate')
+bats$cdate <- NULL
+
+### Order bats output by date, site, transect, section:
+bats <- bats[order(bats$DATE, bats$SITE, bats$TRSCT, bats$SECTION),]
 
 ### Write output for analysis:
 write.csv(bats,'data/BAT DATA 2013 and 2014 MASTER.csv',row.names=F)
