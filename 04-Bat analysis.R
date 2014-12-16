@@ -36,6 +36,18 @@ system.time(mod1 <- glmer(PASSES ~ fSECTION + (1|SITE/TRSCT) + offset(log(AREA_h
 system.time(mod2 <- glmmadmb(PASSES ~ fSECTION + (1|SITE/TRSCT) + offset(log(AREA_ha)), 
                  family='nbinom1', data=bats))
 
+system.time(mod3 <- glmmadmb(PASSES ~ fSECTION + (1|SITE/TRSCT) + offset(log(AREA_ha)), 
+                             family='nbinom1', zeroInfl=T, data=bats))
+
+system.time(mod4 <- glmmadmb(PASSES ~ fSECTION + (1|SITE/TRSCT) + offset(log(AREA_ha)), 
+                             family='poisson', data=bats))
+
+system.time(mod5 <- glmmadmb(PASSES ~ fSECTION + (1|SITE/TRSCT) + offset(log(AREA_ha)), 
+                             family='poisson', zeroInfl=T, data=bats))
+
+
+
+
 par(mfrow=c(1,2))
 dispZuur(mod1)
 plot(fitted(mod1),resid(mod1))
