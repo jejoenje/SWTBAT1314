@@ -18,8 +18,11 @@ is.factor(bats$NOTURB)
 
 mod1 <- glmer(PASSES ~ fSECTION + (1|SITE/TRSCT) + offset(log(AREA_ha)), 
               family='poisson', data=bats)
-mod2 <- glmmadmb(PASSES ~ fSECTION + (1|SITE/TRSCT) + offset(log(AREA_ha)), 
-                 family='poisson', data=bats)
+bats$sqPASSES <- sqrt(bats$PASSES)
+system.time(mod1a <- glmmadmb(PASSES ~ fSECTION + (1|SITE/TRSCT) + offset(log(AREA_ha)), 
+              family='poisson', data=bats))
+system.time(mod1b <- glmmadmb(sqPASSES ~ fSECTION + (1|SITE/TRSCT) + offset(log(AREA_ha)), 
+                              family='nbinom1', data=bats))
 
 par(mfrow=c(1,2))
 plot(predict(mod1),resid(mod1))
