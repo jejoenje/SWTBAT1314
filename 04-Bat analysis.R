@@ -45,8 +45,68 @@ system.time(mod4 <- glmmadmb(PASSES ~ fSECTION + (1|SITE/TRSCT) + offset(log(ARE
 system.time(mod5 <- glmmadmb(PASSES ~ fSECTION + (1|SITE/TRSCT) + offset(log(AREA_ha)), 
                              family='poisson', zeroInfl=T, data=bats))
 
+AIC(mod1, mod2, mod3, mod4, mod5)
+plot(fitted(mod2),resid(mod2))
+plot(bats$fSECTION,resid(mod2))
+plot(bats$SITE,resid(mod2))
+plot(fitted(mod2),bats$PASSES); abline(a=0, b=1, col='red')
 
+system.time(mod2a <- glmmadmb(PASSES ~ fSECTION + NOTURB + TTMIDN + (1|SITE/TRSCT) + offset(log(AREA_ha)), 
+                             family='nbinom', data=bats))
 
+bats_nona <- bats[!is.na(bats$WINDS),]; bats_nona <- droplevels(bats_nona)
+system.time(mod10 <- glmmadmb(ALL_PIPS ~ fSECTION*NOTURB + 
+                   WINDS + DAYNO + TTMIDN + I(TTMIDN^2) + pTREE + D_LIN + 
+                   (1|SITE/TRSCT) + offset(log(AREA_ha)), 
+                 family='nbinom', data=bats_nona))
+plot(fitted(mod10),resid(mod10))
+plot(bats_nona$fSECTION,resid(mod10))
+plot(bats_nona$NOTURB,resid(mod10))
+plot(bats_nona$WINDS,resid(mod10))
+plot(bats_nona$DAYNO,resid(mod10))
+plot(bats_nona$TTMIDN,resid(mod10))
+plot(bats_nona$pTREE,resid(mod10))
+plot(bats_nona$D_LIN,resid(mod10))
+plot(bats_nona$SITE,resid(mod10))
+
+system.time(mod11 <- update(mod10, .~. +I(D_LIN^2) +I(WINDS^2)) )
+plot(fitted(mod11),resid(mod11))
+plot(bats_nona$fSECTION,resid(mod11))
+plot(bats_nona$NOTURB,resid(mod11))
+plot(bats_nona$WINDS,resid(mod11))
+plot(bats_nona$DAYNO,resid(mod11))
+plot(bats_nona$TTMIDN,resid(mod11))
+plot(bats_nona$pTREE,resid(mod11))
+plot(bats_nona$D_LIN,resid(mod11))
+plot(bats_nona$SITE,resid(mod11))
+
+AIC(mod10, mod11)
+
+bats_nona$sWINDS <- scale(bats_nona$WINDS)
+bats_nona$sDAYNO <- scale(bats_nona$DAYNO)
+bats_nona$sTTMIDN <- scale(bats_nona$TTMIDN)
+bats_nona$spTREE <- scale(bats_nona$pTREE)
+bats_nona$sD_LIN <- scale(bats_nona$D_LIN)
+bats_nona$sTTMIDN2 <- bats_nona$sTTMIDN^2
+bats_nona$sD_LIN2 <- bats_nona$sD_LIN^2
+bats_nona$sWINDS2 <- bats_nona$sWINDS^2
+
+system.time(mod12 <- glmmadmb(ALL_PIPS ~ fSECTION*NOTURB + 
+                                sWINDS + sWINDS2 + sDAYNO + sTTMIDN + sTTMIDN2 + 
+                                spTREE + sD_LIN + sD_LIN2 + 
+                                (1|SITE/TRSCT) + offset(log(AREA_ha)), 
+                              family='nbinom', data=bats_nona))
+plot(fitted(mod12),resid(mod12))
+plot(bats_nona$fSECTION,resid(mod12))
+plot(bats_nona$NOTURB,resid(mod12))
+plot(bats_nona$WINDS,resid(mod12))
+plot(bats_nona$DAYNO,resid(mod12))
+plot(bats_nona$TTMIDN,resid(mod12))
+plot(bats_nona$pTREE,resid(mod12))
+plot(bats_nona$D_LIN,resid(mod12))
+plot(bats_nona$SITE,resid(mod12))
+
+AIC(mod10, mod11, mod12)
 
 par(mfrow=c(1,2))
 dispZuur(mod1)
@@ -67,20 +127,9 @@ anova(mod3, mod3a)
 # Retain time to midnight poly.
 dispZuur(mod3)
 
-mod4 <- glmer(ALL_PIPS ~ fSECTION*NOTURB + 
-                WINDS + DAYNO + TTMIDN + I(TTMIDN^2) + pTREE + D_LIN + 
-                (1|SITE/TRSCT) + offset(log(AREA_ha)), 
-              family='poisson', data=bats)
-<<<<<<< HEAD
-bats$sqPASSES <- sqrt(bats$PASSES)
-system.time(mod1a <- glmmadmb(PASSES ~ fSECTION + (1|SITE/TRSCT) + offset(log(AREA_ha)), 
-              family='poisson', data=bats))
-system.time(mod1b <- glmmadmb(sqPASSES ~ fSECTION + (1|SITE/TRSCT) + offset(log(AREA_ha)), 
-                              family='nbinom1', data=bats))
-=======
+
 display(mod4)
 dispZuur(mod4)
-bats_nona <- bats[!is.na(bats$WINDS),]; bats_nona <- droplevels(bats_nona)
 mod4a <- update(mod4, .~., data=bats_nona)
 plot(fitted(mod4a), resid(mod4a))
 plot(bats_nona$fSECTION, resid(mod4a))
