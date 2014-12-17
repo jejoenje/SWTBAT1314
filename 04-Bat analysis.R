@@ -125,6 +125,7 @@ plot(predict(mod3, type='response'),jitter(bats_nona$OCC_PIPS, 0.05))
 dispZuur(mod3)
 sum(as.numeric(predict(mod3, type='response')>0.5)!=bats_nona$OCC_PIPS)/nrow(bats_nona)
 round(summary(mod3)$coef,3)
+r2mm(mod3)
 
 # Point predictions:
 p_s1 <- data.frame(fSECTION=factor("1", levels=levels(bats_nona$fSECTION)),
@@ -147,6 +148,52 @@ predict(mod3, newdata=p_s2, type='response', re.form=NA)
 predict(mod3, newdata=p_s3, type='response', re.form=NA)
 predict(mod3, newdata=p_s4, type='response', re.form=NA)
 predict(mod3, newdata=p_s5, type='response', re.form=NA)
+
+# Replicate the above manually:
+mp_s1 <- c(1,0,0,0,0,
+           2,
+           median(bats_nona$sWINDS),
+           median(bats_nona$sDAYNO),
+           median(bats_nona$sTTMIDN),
+           median(bats_nona$spBUILD),
+           median(bats_nona$sD_TRE),
+           median(bats_nona$sTTMIDN2),
+           median(bats_nona$sDAYNO2),
+           2,0,0,0
+           )
+mp_s2 <- mp_s1
+mp_s2[2] <- 1; mp_s2[14] <- 1;
+mp_s3 <- mp_s1
+mp_s3[3] <- 1; mp_s3[15] <- 1;
+mp_s4 <- mp_s1
+mp_s4[4] <- 1; mp_s4[16] <- 1;
+mp_s5 <- mp_s1
+mp_s5[5] <- 1; mp_s5[17] <- 1;
+
+plogis(fixef(mod3) %*% mp_s1)
+plogis(fixef(mod3) %*% mp_s2)
+plogis(fixef(mod3) %*% mp_s3)
+plogis(fixef(mod3) %*% mp_s4)
+plogis(fixef(mod3) %*% mp_s5)
+# Good, manually works.
+
+# Simulate coefficients:
+mod3_sim <- sim(mod3, n.sim=1000)
+mod3_simfix <- attr(mod3_sim, 'fixef')
+
+# Predicted means and lower/upper quantiles:
+# per section:
+predict_s1 <- apply(mod3_simfix, 1, function(x) plogis(x%*%mp_s1))
+predict_s2 <- apply(mod3_simfix, 1, function(x) plogis(x%*%mp_s2))
+predict_s3 <- apply(mod3_simfix, 1, function(x) plogis(x%*%mp_s3))
+predict_s4 <- apply(mod3_simfix, 1, function(x) plogis(x%*%mp_s4))
+predict_s5 <- apply(mod3_simfix, 1, function(x) plogis(x%*%mp_s5))
+predict_all <- data.frame(section=factor(rep(c("1","2","3","4","5"),each=1000)),
+                          pred_y=c(predict_s1, predict_s2, predict_s3, predict_s4, predict_s5))
+boxplot(predict_all$pred_y ~ predict_all$section)
+
+
+
 
 # Point predictions w/o interaction between no. turbines/section AND w/o main effect of no. turbines:
 mod4 <- update(mod3, .~. -fSECTION:NOTURB)
