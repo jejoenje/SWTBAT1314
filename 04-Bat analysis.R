@@ -17,7 +17,8 @@ bats <- read.csv('data/BAT DATA 2013 and 2014 MASTER.csv',header=T)
 ### Check factors, etc:
 is.factor(bats$SITE)
 is.factor(bats$TRSCT)
-is.factor(bats$fSECTION); bats$fSECTION <- factor(bats$fSECTION)
+bats$fSECTION <- factor(bats$fSECTION)
+is.factor(bats$fSECTION)
 is.factor(bats$NOTURB)
 
 ### Proportion of zero's per site:
@@ -45,6 +46,12 @@ bats$sTTMIDN2 <- bats$sTTMIDN^2
 bats$spBUILD <- scale(bats$pBUILD)
 bats$sD_TRE <- scale(bats$D_TRE)
 
+### Create TURB indicator var for "single" or "multiple" (>1) turbines:
+bats$TURB <- "single"
+bats$TURB[bats$NOTURB>1] <- "multiple"
+bats$TURB <- factor(bats$TURB)
+bats$TURB <- relevel(bats$TURB, ref="single")
+
 bats_nona <- bats[!is.na(bats$WINDS),]
 bats_nona <- droplevels(bats_nona)
 
@@ -71,6 +78,68 @@ plot(predict(mod1, type='response'),jitter(bats_nona$OCC_PIPS, 0.05))
 dispZuur(mod1)
 # 'Error rate':
 sum(as.numeric(predict(mod1, type='response')>0.5)!=bats_nona$OCC_PIPS)/nrow(bats_nona)
+
+### Same model as above but with SECTION as continuous:
+mod2 <- glmer(OCC_PIPS ~ SECTION*NOTURB + 
+                sMINTEMP +
+                sWINDS + 
+                sDAYNO + 
+                sTTMIDN + 
+                spBUILD + 
+                sD_TRE + 
+                (1|SITE/TRSCT), data=bats_nona, family=binomial)
+
+### Same again but with TURB (single or multiple turbine?) as factor:
+mod3 <- glmer(OCC_PIPS ~ SECTION*TURB + 
+                sMINTEMP +
+                sWINDS + 
+                sDAYNO + 
+                sTTMIDN + 
+                spBUILD + 
+                sD_TRE + 
+                (1|SITE/TRSCT), data=bats_nona, family=binomial)
+mod3a <- update(mod3, .~. -SECTION:TURB)
+summary(mod3a)
+
+AIC(mod1, mod2, mod3, mod3a)
+
+### Now try 3a as a neg bin model:
+mod4 <- glmmadmb(ALL_PIPS ~ SECTION*TURB + 
+                   sMINTEMP +
+                   sWINDS + 
+                   sDAYNO + 
+                   sTTMIDN + 
+                   spBUILD + 
+                   sD_TRE + 
+                   (1|SITE/TRSCT), data=bats_nona, family="nbinom", verbose=T)
+summary(mod4)
+
+### How about a gamma distribution fit on no/ha?
+bats_nona$ALL_PIPS_ha <- bats_nona$ALL_PIPS/bats_nona$AREA_ha
+mod5 <- glmmadmb(ALL_PIPS_ha ~ SECTION*TURB + 
+                   sMINTEMP +
+                   sWINDS + 
+                   sDAYNO + 
+                   sTTMIDN + 
+                   spBUILD + 
+                   sD_TRE + 
+                   (1|SITE/TRSCT), data=bats_nona, family="gamma", verbose=T)
+### Total fail... massive failure in algorithm.
+
+### So how about trying mod4 with an offset?
+mod4a <- glmmadmb(ALL_PIPS ~ SECTION*TURB + 
+                   sMINTEMP +
+                   sWINDS + 
+                   sDAYNO + 
+                   sTTMIDN + 
+                   spBUILD + 
+                   sD_TRE + 
+                   (1|SITE/TRSCT) + offset(log(AREA_ha)), data=bats_nona, family="nbinom", verbose=T)
+### Drop the interaction:
+mod4a1 <- update(mod4a, .~. -SECTION:TURB)
+AIC(mod4a1, mod4a)
+
+
 
 # Need quad term for wind?
 mod1a <- update(mod1, .~. +sWINDS2)
