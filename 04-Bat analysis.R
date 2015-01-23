@@ -202,7 +202,10 @@ modset <- dredge(mod100, fixed="SECTION",
                    dc(sWINDS, `I(sWINDS^2)`) &&
                    dc(sTTMIDN, `I(sTTMIDN^2)`), trace=T)
 
+subset(modset, delta < 4)
+subset(modset, cumsum(weight) <= .95)
 
+save(modset, file='modset.Rdata')
 
 ### Example for complicated exclusion:
 data(Cement)
