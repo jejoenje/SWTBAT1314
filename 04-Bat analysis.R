@@ -55,6 +55,165 @@ bats$TURB <- relevel(bats$TURB, ref="single")
 bats_nona <- bats[!is.na(bats$WINDS),]
 bats_nona <- droplevels(bats_nona)
 
+###
+### OCCURRENCE MODELS (PROBABILITY OF A PASS)
+###
+### Basic model: GLMM with nested RE:
+
+mod1 <- glmer(OCC_PIPS ~ SECTION*TURB + sMINTEMP +
+                sWINDS + 
+                sDAYNO + 
+                sTTMIDN + 
+                spBUILD + 
+                sD_TRE + 
+                (1|SITE/TRSCT), data=bats_nona, family=binomial)
+summary(mod1)
+dispZuur(mod1)
+
+### To test, what happens when we remove the TRSCT nesting, and the entire RE:
+mod1a <- glmer(OCC_PIPS ~ SECTION*TURB + sMINTEMP +
+                 sWINDS + 
+                 sDAYNO + 
+                 sTTMIDN + 
+                 spBUILD + 
+                 sD_TRE + 
+                 (1|SITE), data=bats_nona, family=binomial)
+mod0 <- glm(OCC_PIPS ~ SECTION*TURB + sMINTEMP +
+              sWINDS + 
+              sDAYNO + 
+              sTTMIDN + 
+              spBUILD + 
+              sD_TRE, data=bats_nona, family=binomial)
+dispZuur(mod1)
+dispZuur(mod1a)
+dispZuur(mod0)
+AIC(mod1, mod1a, mod0)
+
+### Check SAC in binomial GLM:
+library(ncf)
+correlog0 <- correlog(bats_nona$MID_X, bats_nona$MID_Y, residuals(mod0),
+                        na.rm=T, increment=1, resamp=0)
+plot(correlog0$correlation[1:20], pch=16, type='o'); abline(h=0, lty='dashed')
+# make a map of the residuals
+plot(bats_nona$MID_X, bats_nona$MID_Y, 
+     col=c("blue","red")[sign(resid(mod0))/2+1.5], 
+     pch=19,
+     cex=abs(resid(mod0))/max(resid(mod0))*2, 
+     xlab="geographical xcoordinates",
+     ylab="geographical y-coordinates")
+# Basically, it doesn't appear there is much SAC!
+# Plot per site:
+bats_nona$rMod0 <- resid(mod0)
+par(mfrow=c(6,6))
+par(mar=c(0.5,0.5,0.5,0.5))
+for(i in 1:nlevels(bats_nona$SITE)) {
+  sitedat <- bats_nona[bats_nona$SITE==levels(bats_nona$SITE)[i],]
+  sitecl <-  correlog(sitedat$MID_X, sitedat$MID_Y, sitedat$rMod0,
+                      na.rm=T, increment=1, resamp=0)
+  plot(sitecl$correlation[1:20], pch=16, type='o'); abline(h=0, lty='dashed')
+}
+# Nothing convincing per site.
+
+### Check SAC in binomial GLMM with only site as RE:
+correlog1a <- correlog(bats_nona$MID_X, bats_nona$MID_Y, residuals(mod1a),
+                       na.rm=T, increment=1, resamp=0)
+plot(correlog1a$correlation[1:20], pch=16, type='o'); abline(h=0, lty='dashed')
+### Plot per site:
+bats_nona$rMod1a <- resid(mod1a)
+par(mfrow=c(6,6))
+par(mar=c(0.5,0.5,0.5,0.5))
+for(i in 1:nlevels(bats_nona$SITE)) {
+  sitedat <- bats_nona[bats_nona$SITE==levels(bats_nona$SITE)[i],]
+  sitecl <-  correlog(sitedat$MID_X, sitedat$MID_Y, sitedat$rMod1a,
+                      na.rm=T, increment=1, resamp=0)
+  plot(sitecl$correlation[1:20], pch=16, type='o'); abline(h=0, lty='dashed')
+}
+# Nothing convincing per site...
+
+
+### So it still appears that the model w/o SAC structure and a nested RE is the best:
+AIC(mod1, mod1a, mod0)
+plot(mod1)
+# "Error rate":
+sum(bats_nona$OCC_PIPS!=as.numeric(fitted(mod1)>0.5))/nrow(bats_nona)
+# R2?
+r2mm(mod1)
+# Binned residuals against fitted:
+binnedplot(fitted(mod1), resid(mod1, type='pearson'))
+
+
+### Try dropping interaction:
+mod2 <- update(mod1, .~. -SECTION:TURB)
+AIC(mod1, mod2); anova(mod1, mod2)
+summary(mod2)
+
+
+###
+### COUNT MODELS (NEG. BIN.)
+###
+### Basic model: GLMM with nested RE:
+
+mod10 <- glmmadmb(ALL_PIPS ~ SECTION*TURB + sMINTEMP +
+                    sWINDS + 
+                    sDAYNO + 
+                    sTTMIDN + 
+                    spBUILD + 
+                    sD_TRE + 
+                    (1|SITE/TRSCT), data=bats_nona, family="nbinom")
+mod10a <- glmmadmb(ALL_PIPS ~ SECTION*TURB + sMINTEMP +
+                    sWINDS + 
+                    sDAYNO + 
+                    sTTMIDN + 
+                    spBUILD + 
+                    sD_TRE + 
+                    (1|SITE), data=bats_nona, family="nbinom")
+dispZuur(mod10, mod10a)
+AIC(mod10, mod10a)
+# So the 'nested' model is quite a bit better.
+
+# Drop interaction
+mod11 <- update(mod10, .~. -SECTION:TURB)
+AIC(mod10, mod10a, mod11)
+anova(mod11, mod10)
+summary(mod11)
+
+
+###
+### OCCURRENCE MODEL - GLMM NESTED - ALL PIPS - 
+###  - QUAD TERMS WITH TEMP, WIND SPEED, TTMIDN, 
+### MODEL SELECTION
+
+full_mod <- formula(OCC_PIPS ~ SECTION*TURB +
+                   sMINTEMP + I(sMINTEMP^2) +
+                   sWINDS + I(sWINDS^2) + 
+                   sTTMIDN + I(sTTMIDN^2) + 
+                   sDAYNO +
+                   spBUILD +
+                   sD_TRE +
+                   (1|SITE/TRSCT))
+mod100 <- glmer(formula=full_mod, data=bats_nona, family=binomial, na.action='na.fail')
+modset <- dredge(mod100, fixed="SECTION", 
+                 subset=dc(sMINTEMP, `I(sMINTEMP^2)`) && 
+                        dc(sWINDS, `I(sWINDS^2)`) &&
+                        dc(sTTMIDN, `I(sTTMIDN^2)`), evaluate=F)
+length(modset)
+modset <- dredge(mod100, fixed="SECTION", 
+                 subset=dc(sMINTEMP, `I(sMINTEMP^2)`) && 
+                   dc(sWINDS, `I(sWINDS^2)`) &&
+                   dc(sTTMIDN, `I(sTTMIDN^2)`), trace=T)
+
+
+
+### Example for complicated exclusion:
+data(Cement)
+fm <- lm(y ~ X1 + X2 + X3 + X4 + X5, Cement, na.action = na.fail)
+dredge(fm, fixed="X1", subset=!(X2 && (X3 | X4 | X5)) &&  
+                              !(X3 && (X2 | X4 | X5)) && 
+                              !(X4 && (X2 | X3 | X5)) && 
+                              !(X5 && (X2|X3|X4)))
+
+
+
 mod1 <- glmer(OCC_PIPS ~ fSECTION*NOTURB + 
                 sMINTEMP +
                 sWINDS + 
