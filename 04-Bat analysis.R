@@ -9,6 +9,7 @@ library(glmmADMB)
 library(gstat)
 library(sp)
 library(MuMIn)
+library(snow)
 
 source('../../../000_R/RSimExamples/helpjm.r')
 
@@ -33,26 +34,10 @@ min(as.Date(as.vector(bats$DATE),format='%Y-%m-%d'))
 ### Last date:
 max(as.Date(as.vector(bats$DATE),format='%Y-%m-%d'))
 
-### Binary responses and standardise predictors:
+### Binary responses and some housekeeping:
 bats$OCC_PIPS <- as.numeric(as.logical(bats$ALL_PIPS))
 bats$OCC_OTHR <- as.numeric(as.logical(bats$ALL_OTHER))
-bats$sMINTEMP <- scale(bats$min_air_temp)
-bats$sMINTEMP2 <- bats$sMINTEMP^2
-bats$sWINDS <- scale(bats$WINDS)
-bats$sWINDS2 <- bats$sWINDS^2
-bats$sDAYNO <- scale(bats$DAYNO)
-bats$sDAYNO2 <- bats$sDAYNO^2
-bats$sTTMIDN <- scale(bats$TTMIDN)
-bats$sTTMIDN2 <- bats$sTTMIDN^2
-bats$spBUILD <- scale(bats$pBUILD)
-bats$spTREE <- scale(bats$pTREE)
-bats$spRDTRK <- scale(bats$pRDTRK)
-bats$spROADS <- scale(bats$pROADS)
-bats$spRGRAS <- scale(bats$pRGRAS)
-bats$sD_LIN <- scale(bats$D_LIN)
-bats$sD_BUI<- scale(bats$D_BUI)
-bats$sD_WAT<- scale(bats$D_WAT)
-bats$sD_TRE <- scale(bats$D_TRE)
+bats$MINTEMP <- bats$min_air_temp
 
 ### Create TURB indicator var for "single" or "multiple" (>1) turbines:
 bats$TURB <- "single"
@@ -63,10 +48,116 @@ bats$TURB <- relevel(bats$TURB, ref="single")
 bats_nona <- bats[!is.na(bats$WINDS),]
 bats_nona <- droplevels(bats_nona)
 
+
+###
+###
+### 1. SELECT HABITAT DESCRIPTORS USING SEPARATE MODEL SELECTION.
+### MODEL FOR PIP OCCURRENCE WITH ONLY HAB VARIABLES:
+
+# Tests if I can use cloglog link appropriately:
+# mod_hab1.1 <- glmer(OCC_PIPS ~ 1 + (1|SITE/TRSCT), data=bats_nona, family='binomial'(link='logit'))
+# mod_hab1.2 <- glmer(OCC_PIPS ~ 1 + (1|SITE/TRSCT), data=bats_nona, family='binomial'(link='cloglog'))
+# plogis(fixef(mod_hab1.1))
+# make.link('logit')$linkinv(fixef(mod_hab1.1))
+# make.link('cloglog')$linkinv(fixef(mod_hab1.2))
+# # Now with offset:
+# mod_hab1.3 <- glmer(OCC_PIPS ~ 1 + (1|SITE/TRSCT), offset=log(AREA_ha), 
+#                     data=bats_nona, family='binomial'(link='cloglog'))
+# make.link('cloglog')$linkinv(fixef(mod_hab1.3))
+
+# First fit non-standardised models:
+mod_hab1 <- glmer(OCC_PIPS ~ pBUILD + pTREE + pRDTRK + pROADS + pROADS + pRGRAS + 
+                    EDGED + D_LIN + D_BUI + D_WAT + D_TRE + (1|SITE/TRSCT), offset=log(AREA_ha), 
+                  data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail')
+mod_habz1 <- standardize(mod_hab1)
+
+modset_habz1 <- dredge(mod_habz1, 
+                   subset=
+                     !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+                     !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+                     !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
+                     !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
+                     !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
+                     !(z.pBUILD && z.D_BUI) &&
+                     !(z.pTREE && z.D_TRE) &&
+                     !(z.pRDTRK && z.pROADS) &&
+                     !(z.pRDTRK && z.EDGED) &&
+                     !(z.D_LIN && z.EDGED)
+                   , evaluate=F)
+length(modset_habz1)
+
+modset_habz1 <- dredge(mod_habz1, 
+                       subset=
+                         !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+                         !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+                         !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
+                         !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
+                         !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
+                         !(z.pBUILD && z.D_BUI) &&
+                         !(z.pTREE && z.D_TRE) &&
+                         !(z.pRDTRK && z.pROADS) &&
+                         !(z.pRDTRK && z.EDGED) &&
+                         !(z.D_LIN && z.EDGED)
+                       , trace=T)
+subset(modset_habz1, delta<4)
+
+# So let's consider D_BUI, D_WAT, EDGED and pTREE as our hab variables.
+
+
 ###
 ### OCCURRENCE MODELS (PROBABILITY OF A PASS)
 ###
 ### Basic model: GLMM with nested RE:
+
+# First fit unstandardised model:
+m1 <- glmer(OCC_PIPS  ~ fSECTION*TURB + 
+                        MINTEMP + 
+                        I(MINTEMP^2) +
+                        DAYNO +
+                        TTMIDN +
+                        I(TTMIDN^2) + 
+                        WINDS +
+                        D_BUI + 
+                        D_WAT +
+                        EDGED +
+                        pTREE + 
+                        (1|SITE/TRSCT), offset=log(AREA_ha), 
+            data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail')
+# Standardise predictors:
+m1z <- standardize(m1)
+
+m1z_set1 <- dredge(m1z, subset=dc(z.MINTEMP, `I(z.MINTEMP^2)`) && 
+                               dc(z.TTMIDN, `I(z.TTMIDN^2)`), evaluate=F)
+
+
+# Set up cluster:
+clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
+clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
+clusterExport(clust, "bats_nona")
+clusterExport(clust, "glmer")
+clusterExport(clust, "fixef")
+
+system.time({
+  m1z_set1 <- pdredge(m1z, cluster=clust, 
+                      subset=dc(z.MINTEMP, `I(z.MINTEMP^2)`) && 
+                        dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=T)  
+})
+save(m1z_set1, file='m1z_set1')
+
+
+
+
+
+mod1_ns <- glmer(OCC_PIPS ~ SECTION*TURB + 
+                   MINTEMP +
+                   WINDS + 
+                   DAYNO + 
+                   TTMIDN + 
+                   pBUILD + 
+                   D_TRE + 
+                   (1|SITE/TRSCT), data=bats_nona, family=binomial)
+mod1z <- standardize(mod1_ns)
+summary(mod1z)$coef
 
 mod1 <- glmer(OCC_PIPS ~ SECTION*TURB + sMINTEMP +
                 sWINDS + 
@@ -76,7 +167,10 @@ mod1 <- glmer(OCC_PIPS ~ SECTION*TURB + sMINTEMP +
                 sD_TRE + 
                 (1|SITE/TRSCT), data=bats_nona, family=binomial)
 summary(mod1)
+summary(mod1)$coef
 dispZuur(mod1)
+
+
 
 ### To test, what happens when we remove the TRSCT nesting, and the entire RE:
 mod1a <- glmer(OCC_PIPS ~ SECTION*TURB + sMINTEMP +
