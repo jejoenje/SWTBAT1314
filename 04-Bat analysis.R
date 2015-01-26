@@ -8,6 +8,7 @@ library(arm)
 library(glmmADMB)
 library(gstat)
 library(sp)
+library(MuMIn)
 
 source('../../../000_R/RSimExamples/helpjm.r')
 
@@ -44,6 +45,13 @@ bats$sDAYNO2 <- bats$sDAYNO^2
 bats$sTTMIDN <- scale(bats$TTMIDN)
 bats$sTTMIDN2 <- bats$sTTMIDN^2
 bats$spBUILD <- scale(bats$pBUILD)
+bats$spTREE <- scale(bats$pTREE)
+bats$spRDTRK <- scale(bats$pRDTRK)
+bats$spROADS <- scale(bats$pROADS)
+bats$spRGRAS <- scale(bats$pRGRAS)
+bats$sD_LIN <- scale(bats$D_LIN)
+bats$sD_BUI<- scale(bats$D_BUI)
+bats$sD_WAT<- scale(bats$D_WAT)
 bats$sD_TRE <- scale(bats$D_TRE)
 
 ### Create TURB indicator var for "single" or "multiple" (>1) turbines:
@@ -197,15 +205,95 @@ modset <- dredge(mod100, fixed="SECTION",
                         dc(sWINDS, `I(sWINDS^2)`) &&
                         dc(sTTMIDN, `I(sTTMIDN^2)`), evaluate=F)
 length(modset)
-modset <- dredge(mod100, fixed="SECTION", 
-                 subset=dc(sMINTEMP, `I(sMINTEMP^2)`) && 
-                   dc(sWINDS, `I(sWINDS^2)`) &&
-                   dc(sTTMIDN, `I(sTTMIDN^2)`), trace=T)
 
-subset(modset, delta < 4)
-subset(modset, cumsum(weight) <= .95)
+modset2 <- dredge(mod100,
+                  subset=dc(sMINTEMP, `I(sMINTEMP^2)`) && 
+                    dc(sWINDS, `I(sWINDS^2)`) &&
+                    dc(sTTMIDN, `I(sTTMIDN^2)`), evaluate=F)
+length(modset2)
 
-save(modset, file='modset.Rdata')
+# Set up cluster:
+clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
+clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
+clusterExport(clust, "bats_nona")
+clusterExport(clust, "glmer")
+clusterExport(clust, "fixef")
+
+modset2 <- pdredge(mod100, cluster = clust, 
+                  subset=dc(sMINTEMP, `I(sMINTEMP^2)`) && 
+                    dc(sWINDS, `I(sWINDS^2)`) &&
+                    dc(sTTMIDN, `I(sTTMIDN^2)`), trace=T)
+subset(modset2, delta < 4)
+
+# Same as modset2 but selection on BIC:
+modset2a <- pdredge(mod100, cluster = clust, rank = 'BIC',
+                    subset=dc(sMINTEMP, `I(sMINTEMP^2)`) && 
+                      dc(sWINDS, `I(sWINDS^2)`) &&
+                      dc(sTTMIDN, `I(sTTMIDN^2)`), trace=T)
+subset(modset2a, delta < 4)
+subset(modset2a, cumsum(weight) <= .95)
+
+model.avg(modset2a, subset = delta < 4)
+mod2a_av <- model.avg(modset2a, subset = cumsum(weight) <= .95)
+summary(mod2a_av)
+
+subset(modset2, delta < 4)
+subset(modset2, cumsum(weight) <= .95)
+mod2_av <- model.avg(modset2, subset = delta < 4)
+summary(mod2_av)
+
+### Modset 3; try other hab variables as well, but only one of proportions or distances.
+fuller_mod <- formula(OCC_PIPS ~ SECTION*TURB +
+                      sMINTEMP + I(sMINTEMP^2) +
+                      sWINDS + I(sWINDS^2) + 
+                      sTTMIDN + I(sTTMIDN^2) + 
+                      sDAYNO +
+                      spBUILD +
+                      spTREE +
+                      spRDTRK +
+                      spROADS +
+                      spRGRAS +
+                      sD_LIN +
+                      sD_WAT +
+                      sD_BUI +
+                      sD_TRE +
+                      (1|SITE/TRSCT))
+mod200 <- glmer(formula=fuller_mod, data=bats_nona, family=binomial, na.action='na.fail')
+modset3 <- pdredge(mod200, cluster = clust, 
+                   subset=dc(sMINTEMP, `I(sMINTEMP^2)`) && 
+                          dc(sWINDS, `I(sWINDS^2)`) &&
+                          dc(sTTMIDN, `I(sTTMIDN^2)`) &&
+                          !(spBUILD && (spTREE | spRDTRK | spROADS | spRGRAS )) &&
+                          !(spTREE && (spBUILD | spRDTRK | spROADS | spRGRAS )) &&
+                          !(spRDTRK && (spTREE | spBUILD | spROADS | spRGRAS )) &&
+                          !(spROADS && (spTREE | spRDTRK | spBUILD | spRGRAS )) &&
+                          !(spRGRAS && (spTREE | spRDTRK | spROADS | spBUILD )) &&
+                          !(sD_LIN && (sD_BUI | sD_WAT | sD_TRE)) &&
+                          !(sD_BUI && (sD_LIN | sD_WAT | sD_TRE)) &&
+                          !(sD_WAT && (sD_BUI | sD_LIN | sD_TRE)) &&
+                          !(sD_TRE && (sD_BUI | sD_WAT | sD_LIN))
+                     , evaluate=F)
+length(modset3)
+system.time({
+  modset3 <- pdredge(mod200, cluster = clust, 
+                     subset=dc(sMINTEMP, `I(sMINTEMP^2)`) && 
+                       dc(sWINDS, `I(sWINDS^2)`) &&
+                       dc(sTTMIDN, `I(sTTMIDN^2)`) &&
+                       !(spBUILD && (spTREE | spRDTRK | spROADS | spRGRAS )) &&
+                       !(spTREE && (spBUILD | spRDTRK | spROADS | spRGRAS )) &&
+                       !(spRDTRK && (spTREE | spBUILD | spROADS | spRGRAS )) &&
+                       !(spROADS && (spTREE | spRDTRK | spBUILD | spRGRAS )) &&
+                       !(spRGRAS && (spTREE | spRDTRK | spROADS | spBUILD )) &&
+                       !(sD_LIN && (sD_BUI | sD_WAT | sD_TRE)) &&
+                       !(sD_BUI && (sD_LIN | sD_WAT | sD_TRE)) &&
+                       !(sD_WAT && (sD_BUI | sD_LIN | sD_TRE)) &&
+                       !(sD_TRE && (sD_BUI | sD_WAT | sD_LIN))
+                     , trace=T)
+})
+save(modset3, 'modset3.RData')
+
+stopCluster(clust)
+
 
 ### Example for complicated exclusion:
 data(Cement)
