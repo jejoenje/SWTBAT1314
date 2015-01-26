@@ -86,20 +86,53 @@ modset_habz1 <- dredge(mod_habz1,
                    , evaluate=F)
 length(modset_habz1)
 
-modset_habz1 <- dredge(mod_habz1, 
-                       subset=
-                         !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-                         !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-                         !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
-                         !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
-                         !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
-                         !(z.pBUILD && z.D_BUI) &&
-                         !(z.pTREE && z.D_TRE) &&
-                         !(z.pRDTRK && z.pROADS) &&
-                         !(z.pRDTRK && z.EDGED) &&
-                         !(z.D_LIN && z.EDGED)
-                       , trace=T)
+system.time({
+  modset_habz1 <- dredge(mod_habz1, 
+                         subset=
+                           !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+                           !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+                           !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
+                           !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
+                           !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
+                           !(z.pBUILD && z.D_BUI) &&
+                           !(z.pTREE && z.D_TRE) &&
+                           !(z.pRDTRK && z.pROADS) &&
+                           !(z.pRDTRK && z.EDGED) &&
+                           !(z.D_LIN && z.EDGED)
+                         , trace=T)
+})
+# user  system elapsed 
+# 153.543   0.551 154.262 
+save(modset_habz1, file='modset_habz1.RData')
 subset(modset_habz1, delta<4)
+
+# Repeat above on all clusters:
+clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
+clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
+clusterExport(clust, "bats_nona")
+clusterExport(clust, "glmer")
+clusterExport(clust, "fixef")
+system.time({
+  modset_habz1 <- pdredge(mod_habz1, cluster=clust,
+                         subset=
+                           !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+                           !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+                           !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
+                           !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
+                           !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
+                           !(z.pBUILD && z.D_BUI) &&
+                           !(z.pTREE && z.D_TRE) &&
+                           !(z.pRDTRK && z.pROADS) &&
+                           !(z.pRDTRK && z.EDGED) &&
+                           !(z.D_LIN && z.EDGED)
+                         , trace=T)
+})
+# user  system elapsed 
+# 1.620   0.687  44.851 
+stopCluster(clust)
+save(modset_habz1, file='modset_habz1.Rdata')
+subset(modset_habz1, delta<4)
+
 
 # So let's consider D_BUI, D_WAT, EDGED and pTREE as our hab variables.
 
@@ -128,7 +161,7 @@ m1z <- standardize(m1)
 
 m1z_set1 <- dredge(m1z, subset=dc(z.MINTEMP, `I(z.MINTEMP^2)`) && 
                                dc(z.TTMIDN, `I(z.TTMIDN^2)`), evaluate=F)
-
+length(m1z_set1)
 
 # Set up cluster:
 clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
@@ -142,9 +175,8 @@ system.time({
                       subset=dc(z.MINTEMP, `I(z.MINTEMP^2)`) && 
                         dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=T)  
 })
-save(m1z_set1, file='m1z_set1')
-
-
+save(m1z_set1, file='m1z_set1.Rdata')
+stopCluster(clust)
 
 
 
