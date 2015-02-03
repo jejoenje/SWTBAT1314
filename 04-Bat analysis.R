@@ -277,7 +277,8 @@ stopCluster(clust)
 load('m1z_set1.Rdata')
 subset(m1z_set1, delta<4)
 subset(m1z_set1, delta<2)
-
+m1z_av <- model.avg(m1z_set1, delta<4)
+summary(m1z_av)
 
 ### "Simpler habitat" set: GLMM with nested RE. Only those hab vars that are present in all four d<4 hab models.
 ### (so that's EDGED and pTREE)
@@ -311,10 +312,41 @@ system.time({
 })
 save(m2z_set1, file='m2z_set1.Rdata')
 subset(m2z_set1, delta<4)
+load('m2z_set1.Rdata')
 
-model.avg(m2z_set1, subset = delta < 4)
+m2z_av <- model.avg(m2z_set1, delta<4, fit=T, trace=T)
+summary(m2z_av)
 
+vcov(m2z_av)
 
+# This is a manual version of Gelman's sim() function.
+sim_man <- function(mod, S) {
+  sig.hat <- sigma(mod)   # Model estimated residual standard error
+  V.beta <- vcov(mod)     # Model estimated variance-covariance matrix
+  n <- nrow(as.data.frame(model.matrix(mod)))
+  k <- attr(logLik(mod),'df')
+  sigma <- as.vector(NULL)
+  beta <- as.data.frame(NULL)
+  for (s in 1:S) {
+    sigma <- c(sigma, sig.hat*sqrt((n-k)/rchisq(1,n-k)))
+    beta <- rbind(beta, mvrnorm(1, fixef(mod), V.beta*sigma[s]^2))
+  }
+  names(beta) <- names(fixef(mod))
+  return(list(fixef=beta, sigma=sigma))
+}
+
+testmod <- glmer(OCC_PIPS ~ fSECTION*TURB + (1|SITE/TRSCT), data=bats_nona, family=binomial(link='cloglog'))
+testmod <- standardize(testmod)
+
+par(mfrow=c(3,4))
+par(mar=c(1,1,1,1))
+arm_sim <- density(attr(sim(testmod, 1000),'fixef')[,i])
+man_sim <- density(sim_man(testmod, 1000)$fixef[,i])
+for(i in 1:length(fixef(testmod))) {
+  ylims <- max(c(arm_sim$y, man_sim$y))
+  plot(arm_sim, main=names(fixef(testmod))[i])
+  lines(man_sim,col='red')
+}
 
 
 mod1_ns <- glmer(OCC_PIPS ~ SECTION*TURB + 
