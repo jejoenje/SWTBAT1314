@@ -277,7 +277,8 @@ stopCluster(clust)
 load('m1z_set1.Rdata')
 subset(m1z_set1, delta<4)
 subset(m1z_set1, delta<2)
-m1z_av <- model.avg(m1z_set1, delta<4)
+m1z_av <- model.avg(m1z_set1, delta<4, fit=T)
+save(m1z_av, file='m1z_av.Rdata')
 summary(m1z_av)
 
 ### "Simpler habitat" set: GLMM with nested RE. Only those hab vars that are present in all four d<4 hab models.
@@ -315,38 +316,165 @@ subset(m2z_set1, delta<4)
 load('m2z_set1.Rdata')
 
 m2z_av <- model.avg(m2z_set1, delta<4, fit=T, trace=T)
+save(m2z_av, file='m2z_av.Rdata')
+#vcov(m2z_av)
 summary(m2z_av)
+summary(m2z_av)$avg.model
 
-vcov(m2z_av)
 
-# This is a manual version of Gelman's sim() function.
-sim_man <- function(mod, S) {
-  sig.hat <- sigma(mod)   # Model estimated residual standard error
-  V.beta <- vcov(mod)     # Model estimated variance-covariance matrix
-  n <- nrow(as.data.frame(model.matrix(mod)))
-  k <- attr(logLik(mod),'df')
+### PLOT PREDICTIONS:
+
+linkinv <- m2z@resp$family$linkinv
+
+p1 <- c(1,0,0,0,0,   # fSECTION 1
+        0,           # z.DAYNO
+        0,           # z.EDGED
+        0,           # z.TTMIDN,
+        0,           # I(z.TTMIDN^2)
+        0,           # z.WINDS
+        0,           # z.pTREE
+        0,           # SINGLE TURB = -0.5639652
+        0,           # TURB*section 2
+        0,           # TURB*section 3
+        0,           # TURB*section 4
+        0,           # TURB*section 5
+        0            # z.MINTEMP
+        )
+
+linkinv(p1 %*% summary(m2z_av)$avg.model[,1])
+
+p_single <- cbind(rep(1,5),          # Intercept (fSECTION 1)
+                  c(0,1,0,0,0),      # fSECTION 2
+                  c(0,0,1,0,0),      # fSECTION 3
+                  c(0,0,0,1,0),      # fSECTION 4
+                  c(0,0,0,0,1),      # fSECTION 5
+                  rep(0,5),          # z.DAYNO
+                  rep(0,5),          # z.EDGED
+                  rep(0,5),          # z.TTMIDN,
+                  rep(0,5),          # I(z.TTMIDN^2),
+                  rep(0,5),          # z.WINDS
+                  rep(0,5),          # z.pTREE
+                  rep(-0.5639652,5), # SINGLE TURB = -0.5639652
+                  cbind(c(0,1,0,0,0),# Interaction, fsection 2
+                        c(0,0,1,0,0),# Interaction, fsection 3
+                        c(0,0,0,1,0),# Interaction, fsection 4
+                        c(0,0,0,0,1))*-0.5639652, # fsection 5 - SINGLE TURB
+                  rep(0,5)           # z.MINTEMP
+                  )
+p_multp <- cbind(rep(1,5),          # Intercept (fSECTION 1)
+                  c(0,1,0,0,0),      # fSECTION 2
+                  c(0,0,1,0,0),      # fSECTION 3
+                  c(0,0,0,1,0),      # fSECTION 4
+                  c(0,0,0,0,1),      # fSECTION 5
+                  rep(0,5),          # z.DAYNO
+                  rep(0,5),          # z.EDGED
+                  rep(0,5),          # z.TTMIDN,
+                  rep(0,5),          # I(z.TTMIDN^2),
+                  rep(0,5),          # z.WINDS
+                  rep(0,5),          # z.pTREE
+                  rep(0.4360348,5), # MULT TURB = 0.4360348
+                  cbind(c(0,1,0,0,0),# Interaction, fsection 2
+                        c(0,0,1,0,0),# Interaction, fsection 3
+                        c(0,0,0,1,0),# Interaction, fsection 4
+                        c(0,0,0,0,1))*0.4360348, # fsection 5 - MULT TURB
+                  rep(0,5)           # z.MINTEMP
+)
+
+# Point predictions, SINGLE turbine:
+pts1_single <- linkinv(p_single %*% summary(m2z_av)$avg.model[,1])
+
+# Point predictions, MULTIPLE turbines:
+pts1_mult <- linkinv(p_multp %*% summary(m2z_av)$avg.model[,1])
+
+# Now simulate from posteriors of betas to get prediction intervals:
+
+# Custom sim() function to work with averaging object:
+sim_man <- function(avmod, S) {
+  sig.hat <- 1            # FIX RESIDUAL SE TO 1 (binomial model)
+  V.beta <- vcov(avmod)   # Model estimated variance-covariance matrix
+  n <- nrow(as.data.frame(model.matrix(avmod)))
+  k <- nrow(summary(m2z_av)$avg.model) + length(ranef(m2z))
   sigma <- as.vector(NULL)
   beta <- as.data.frame(NULL)
   for (s in 1:S) {
     sigma <- c(sigma, sig.hat*sqrt((n-k)/rchisq(1,n-k)))
-    beta <- rbind(beta, mvrnorm(1, fixef(mod), V.beta*sigma[s]^2))
+    beta <- rbind(beta, mvrnorm(1, summary(m2z_av)$avg.model[,1], V.beta*sigma[s]^2))
   }
-  names(beta) <- names(fixef(mod))
+  names(beta) <- names(summary(m2z_av)$avg.model[,1])
   return(list(fixef=beta, sigma=sigma))
 }
 
-testmod <- glmer(OCC_PIPS ~ fSECTION*TURB + (1|SITE/TRSCT), data=bats_nona, family=binomial(link='cloglog'))
-testmod <- standardize(testmod)
+m2z_av_sim <- sim_man(m2z_av, 1000)
 
-par(mfrow=c(3,4))
-par(mar=c(1,1,1,1))
-arm_sim <- density(attr(sim(testmod, 1000),'fixef')[,i])
-man_sim <- density(sim_man(testmod, 1000)$fixef[,i])
-for(i in 1:length(fixef(testmod))) {
-  ylims <- max(c(arm_sim$y, man_sim$y))
-  plot(arm_sim, main=names(fixef(testmod))[i])
-  lines(man_sim,col='red')
-}
+# MEAN prediction, SINGLE turbine:
+pts2_single <- linkinv(apply(apply(m2z_av_sim$fixef, 1, function(x) p_single %*% x), 
+                             1, 
+                             mean))
+
+# Lower and upper quantiles for point predictions, SINGLE turbine:
+qtls_single <- linkinv(apply(apply(m2z_av_sim$fixef, 1, function(x) p_single %*% x), 
+                               1, 
+                               function(x) quantile(x, probs=c(0.025, 0.975))))
+
+# PREDICTIONS FOR SINGLE TURBINE:
+preds_single <- data.frame(pts1_single, pts2_single, t(qtls_single))
+
+
+# MEAN prediction, MULT turbine:
+pts2_mult <- linkinv(apply(apply(m2z_av_sim$fixef, 1, function(x) p_multp %*% x), 
+                           1, 
+                           mean))
+
+# Lower and upper quantiles for point predictions, SINGLE turbine:
+qtls_mult <- linkinv(apply(apply(m2z_av_sim$fixef, 1, function(x) p_multp %*% x), 
+                             1, 
+                             function(x) quantile(x, probs=c(0.025, 0.975))))
+
+# PREDICTIONS FOR MULTIPLE TURBINE:
+preds_mult <- data.frame(pts1_mult, pts2_mult, t(qtls_mult))
+
+par(mfrow=c(1,2))
+bars_single <- barplot(preds_single$pts1_single, 
+                       ylim=c(0, max(c(preds_single$X97.5.,preds_mult$X97.5.))),
+                       names.arg=c('0-100','100-200','200-300','300-400','400-500'),
+                       main='Single turbine',
+                       xlab='Distance band (m)',
+                       ylab='Probability of a bat pass / ha??'
+                       )
+arrows(bars_single, preds_single$X2.5., 
+       bars_single, preds_single$X97.5., 
+       code=3, length=0.1, angle=90)
+bars_mult <- barplot(preds_mult$pts1_mult, 
+                     ylim=c(0, max(c(preds_single$X97.5.,preds_mult$X97.5.))),
+                       names.arg=c('0-100','100-200','200-300','300-400','400-500'),
+                       main='Multiple turbines',
+                       xlab='Distance band (m)',
+                       ylab='Probability of a bat pass / ha??'
+)
+arrows(bars_mult, preds_mult$X2.5., 
+       bars_mult, preds_mult$X97.5., 
+       code=3, length=0.1, angle=90)
+
+
+
+
+
+
+
+# reference for bar plot:
+# bars1 <- barplot(matrix(cpip_predict$fit,2,2), beside=T, col=c(shd1, shd2),
+#                  ylim=c(0, max(cpip_predict$upr)+100), names.arg=c('Control','Turbine'),
+#                  ylab='Predicted number of C. Pip passes per night'
+# )
+# for(i in 1:nrow(cpip_predict)) {
+#   arrows(bars1[i],cpip_predict$lwr[i],bars1[i],cpip_predict$upr[i],code=3, length=0.1, angle=90)
+# }
+# legend(1, 1100, legend=c('Before','After'), bty='n', 
+#        xjust=0, col=c(shd1, shd2), fill=c(shd1, shd2), x.intersp=0.25, text.width=0.25)
+
+
+
+
 
 
 mod1_ns <- glmer(OCC_PIPS ~ SECTION*TURB + 
