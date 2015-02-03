@@ -10,6 +10,7 @@ library(gstat)
 library(sp)
 library(MuMIn)
 library(snow)
+library(corrplot)
 
 source('../../../000_R/RSimExamples/helpjm.r')
 
@@ -80,7 +81,6 @@ modset_habz1 <- dredge(mod_habz1,
                      !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
                      !(z.pBUILD && z.D_BUI) &&
                      !(z.pTREE && z.D_TRE) &&
-                     !(z.pRDTRK && z.pROADS) &&
                      !(z.pRDTRK && z.EDGED) &&
                      !(z.D_LIN && z.EDGED)
                    , evaluate=F)
@@ -102,16 +102,19 @@ length(modset_habz1)
 #                          , trace=T)
 # })
 # user  system elapsed 
-# 153.543   0.551 154.262 
+# 153.543   0.551 195.446 
 # save(modset_habz1, file='modset_habz1.RData')
 # subset(modset_habz1, delta<4)
 
 # Repeat above on all clusters:
 clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
-clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
+clust <- try(makeCluster(getOption("cl.cores", 24), type = clusterType))
 clusterExport(clust, "bats_nona")
 clusterExport(clust, "glmer")
 clusterExport(clust, "fixef")
+clusterExport(clust, "vcov")
+clusterExport(clust, "forceSymmetric")
+
 system.time({
   modset_habz1 <- pdredge(mod_habz1, cluster=clust,
                          subset=
@@ -128,116 +131,118 @@ system.time({
                          , trace=T)
 })
 # user  system elapsed 
-# 1.681   0.689  44.050 
-stopCluster(clust)
+# 1.681   0.689  29.783 
 save(modset_habz1, file='modset_habz1.Rdata')
 subset(modset_habz1, delta<4)
 subset(modset_habz1, delta<10)
 
 # So on the basis of AIC selection, let's consider D_BUI, D_WAT, EDGED and pTREE as our hab variables.
 
-# Second AIC based selection, exclude edge density:
-mod_hab2 <- glmer(OCC_PIPS ~ pBUILD + pTREE + pRDTRK + pROADS + pROADS + pRGRAS + 
-                    D_LIN + D_BUI + D_WAT + D_TRE + (1|SITE/TRSCT), offset=log(AREA_ha), 
-                  data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail')
-mod_habz2 <- standardize(mod_hab2)
+# # Second AIC based selection, exclude edge density:
+# mod_hab2 <- glmer(OCC_PIPS ~ pBUILD + pTREE + pRDTRK + pROADS + pROADS + pRGRAS + 
+#                     D_LIN + D_BUI + D_WAT + D_TRE + (1|SITE/TRSCT), offset=log(AREA_ha), 
+#                   data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail')
+# mod_habz2 <- standardize(mod_hab2)
+# 
+# modset_habz2 <- dredge(mod_habz2, 
+#                        subset=
+#                          !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+#                          !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+#                          !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
+#                          !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
+#                          !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
+#                          !(z.pBUILD && z.D_BUI) &&
+#                          !(z.pTREE && z.D_TRE) &&
+#                          !(z.pRDTRK && z.pROADS)
+#                        , evaluate=F)
+# length(modset_habz2)
+# modset_habz2 <- pdredge(mod_habz2, cluster=clust,
+#                        subset=
+#                          !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+#                          !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+#                          !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
+#                          !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
+#                          !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
+#                          !(z.pBUILD && z.D_BUI) &&
+#                          !(z.pTREE && z.D_TRE) &&
+#                          !(z.pRDTRK && z.pROADS)
+#                        , trace=T)
+# save(modset_habz2, file='modset_habz2.Rdata')
+# stopCluster(clust)
+# subset(modset_habz2, delta<4)
 
-modset_habz2 <- dredge(mod_habz2, 
-                       subset=
-                         !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-                         !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-                         !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
-                         !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
-                         !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
-                         !(z.pBUILD && z.D_BUI) &&
-                         !(z.pTREE && z.D_TRE) &&
-                         !(z.pRDTRK && z.pROADS)
-                       , evaluate=F)
-length(modset_habz2)
-modset_habz2 <- pdredge(mod_habz2, cluster=clust,
-                       subset=
-                         !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-                         !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-                         !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
-                         !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
-                         !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
-                         !(z.pBUILD && z.D_BUI) &&
-                         !(z.pTREE && z.D_TRE) &&
-                         !(z.pRDTRK && z.pROADS)
-                       , trace=T)
-save(modset_habz2, file='modset_habz2.Rdata')
-stopCluster(clust)
-subset(modset_habz2, delta<4)
+# More hab variables retained - use original hab set (D_BUI, D_WAT, EDGED and pTREE)
+
 
 # Check BIC selection:
-clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
-clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
-clusterExport(clust, "bats_nona")
-clusterExport(clust, "glmer")
-clusterExport(clust, "fixef")
-system.time({
-  modset_habz1_BIC <- pdredge(mod_habz1, cluster=clust,
-                          subset=
-                            !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-                            !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-                            !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
-                            !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
-                            !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
-                            !(z.pBUILD && z.D_BUI) &&
-                            !(z.pTREE && z.D_TRE) &&
-                            !(z.pRDTRK && z.pROADS) &&
-                            !(z.pRDTRK && z.EDGED) &&
-                            !(z.D_LIN && z.EDGED)
-                          , rank='BIC', trace=T)
-})
-# user  system elapsed 
-# 1.651   0.700  43.930 
-stopCluster(clust)
-save(modset_habz1_BIC, file='modset_habz1_BIC.Rdata')
-subset(modset_habz1_BIC, delta<4)
-subset(modset_habz1_BIC, delta<10)
-
-# Only EDGED and pTREE following BIC selection.
-
-# Check DIC selection:
-clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
-clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
-clusterExport(clust, "bats_nona")
-clusterExport(clust, "glmer")
-clusterExport(clust, "fixef")
-system.time({
-  modset_habz1_DIC <- pdredge(mod_habz1, cluster=clust,
-                              subset=
-                                !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-                                !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-                                !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
-                                !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
-                                !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
-                                !(z.pBUILD && z.D_BUI) &&
-                                !(z.pTREE && z.D_TRE) &&
-                                !(z.pRDTRK && z.pROADS) &&
-                                !(z.pRDTRK && z.EDGED) &&
-                                !(z.D_LIN && z.EDGED)
-                              , rank='DIC', trace=T)
-})
-# user  system elapsed 
-# 1.635   0.682  44.355
-stopCluster(clust)
-save(modset_habz1_DIC, file='modset_habz1_DIC.Rdata')
-subset(modset_habz1_DIC, delta<4)
-subset(modset_habz1_DIC, delta<10)
-
-# For DIC, use D_BUI, D_TRE, D_WAT, EDGED, pROADS, and pTREE.
+# clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
+# clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
+# clusterExport(clust, "bats_nona")
+# clusterExport(clust, "glmer")
+# clusterExport(clust, "fixef")
+# system.time({
+#   modset_habz1_BIC <- pdredge(mod_habz1, cluster=clust,
+#                           subset=
+#                             !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+#                             !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+#                             !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
+#                             !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
+#                             !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
+#                             !(z.pBUILD && z.D_BUI) &&
+#                             !(z.pTREE && z.D_TRE) &&
+#                             !(z.pRDTRK && z.pROADS) &&
+#                             !(z.pRDTRK && z.EDGED) &&
+#                             !(z.D_LIN && z.EDGED)
+#                           , rank='BIC', trace=T)
+# })
+# # user  system elapsed 
+# # 1.651   0.700  43.930 
+# stopCluster(clust)
+# save(modset_habz1_BIC, file='modset_habz1_BIC.Rdata')
+# subset(modset_habz1_BIC, delta<4)
+# subset(modset_habz1_BIC, delta<10)
+# 
+# # Only EDGED and pTREE following BIC selection.
+# 
+# # Check DIC selection:
+# clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
+# clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
+# clusterExport(clust, "bats_nona")
+# clusterExport(clust, "glmer")
+# clusterExport(clust, "fixef")
+# system.time({
+#   modset_habz1_DIC <- pdredge(mod_habz1, cluster=clust,
+#                               subset=
+#                                 !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+#                                 !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+#                                 !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
+#                                 !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
+#                                 !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
+#                                 !(z.pBUILD && z.D_BUI) &&
+#                                 !(z.pTREE && z.D_TRE) &&
+#                                 !(z.pRDTRK && z.pROADS) &&
+#                                 !(z.pRDTRK && z.EDGED) &&
+#                                 !(z.D_LIN && z.EDGED)
+#                               , rank='DIC', trace=T)
+# })
+# # user  system elapsed 
+# # 1.635   0.682  44.355
+# stopCluster(clust)
+# save(modset_habz1_DIC, file='modset_habz1_DIC.Rdata')
+# subset(modset_habz1_DIC, delta<4)
+# subset(modset_habz1_DIC, delta<10)
+# 
+# # For DIC, use D_BUI, D_TRE, D_WAT, EDGED, pROADS, and pTREE.
 
 ###
 ### OCCURRENCE MODELS (PROBABILITY OF A PASS)
 ###
 ### Basic model: GLMM with nested RE. Habitat vars based on AIC selection, and use AIC selection.
+### (so that's D_BUI, D_WAT, EDGED and pTREE)
 
 # First fit unstandardised model:
 m1 <- glmer(OCC_PIPS  ~ fSECTION*TURB + 
                         MINTEMP + 
-                        I(MINTEMP^2) +
                         DAYNO +
                         TTMIDN +
                         I(TTMIDN^2) + 
@@ -251,13 +256,12 @@ m1 <- glmer(OCC_PIPS  ~ fSECTION*TURB +
 # Standardise predictors:
 m1z <- standardize(m1)
 
-m1z_set1 <- dredge(m1z, subset=dc(z.MINTEMP, `I(z.MINTEMP^2)`) && 
-                               dc(z.TTMIDN, `I(z.TTMIDN^2)`), evaluate=F)
+m1z_set1 <- dredge(m1z, subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), evaluate=F)
 length(m1z_set1)
 
 # Set up cluster:
 clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
-clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
+clust <- try(makeCluster(getOption("cl.cores", 24), type = clusterType))
 clusterExport(clust, "bats_nona")
 clusterExport(clust, "glmer")
 clusterExport(clust, "fixef")
@@ -275,89 +279,7 @@ subset(m1z_set1, delta<2)
 
 
 
-###
-### Basic model: Repeat of above but use BIC selection and use BIC habitat vars (only EDGED and pTREE):
-m1_BIC <- glmer(OCC_PIPS  ~ fSECTION*TURB + 
-              MINTEMP + 
-              I(MINTEMP^2) +
-              DAYNO +
-              TTMIDN +
-              I(TTMIDN^2) + 
-              WINDS +
-              EDGED +
-              pTREE + 
-              (1|SITE/TRSCT), offset=log(AREA_ha), 
-            data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail')
-# Standardise predictors:
-m1_BICz <- standardize(m1_BIC)
 
-m1_BICz_set1 <- dredge(m1_BICz, subset=dc(z.MINTEMP, `I(z.MINTEMP^2)`) && 
-                                       dc(z.TTMIDN, `I(z.TTMIDN^2)`), rank='BIC', evaluate=F)
-length(m1_BICz_set1)
-
-# Set up cluster:
-clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
-clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
-clusterExport(clust, "bats_nona")
-clusterExport(clust, "glmer")
-clusterExport(clust, "fixef")
-
-system.time({
-  m1_BICz_set1 <- pdredge(m1_BICz, cluster=clust, subset=dc(z.MINTEMP, `I(z.MINTEMP^2)`) && 
-                                         dc(z.TTMIDN, `I(z.TTMIDN^2)`), rank='BIC', trace=T)
-})
-save(m1_BICz_set1, file='m1_BICz_set1.Rdata')
-stopCluster(clust)
-load('m1_BICz_set1.Rdata')
-subset(m1_BICz_set1, delta<4)
-
-
-###
-### Basic model: Repeat of above but use DIC selection and use DIC habitat vars (D_BUI, D_TRE, D_WAT, EDGED, pROADS, and pTREE.):
-m1_DIC <- glmer(OCC_PIPS  ~ fSECTION*TURB + 
-                  MINTEMP + 
-                  I(MINTEMP^2) +
-                  DAYNO +
-                  TTMIDN +
-                  I(TTMIDN^2) + 
-                  WINDS +
-                  D_BUI +
-                  D_TRE +
-                  D_WAT +
-                  EDGED +
-                  pROADS +
-                  pTREE + 
-                  (1|SITE/TRSCT), offset=log(AREA_ha), 
-                data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail')
-# Standardise predictors:
-m1_DICz <- standardize(m1_DIC)
-
-m1_DICz_set1 <- dredge(m1_DICz, subset=dc(z.MINTEMP, `I(z.MINTEMP^2)`) && 
-                                       dc(z.TTMIDN, `I(z.TTMIDN^2)`) &&
-                                       !(z.pROADS && z.pTREE) &&
-                                       !(z.pTREE && z.D_TRE)
-                         , rank='DIC', evaluate=F)
-length(m1_DICz_set1)
-
-# Set up cluster:
-clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
-clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
-clusterExport(clust, "bats_nona")
-clusterExport(clust, "glmer")
-clusterExport(clust, "fixef")
-
-system.time({
-  m1_DICz_set1 <- pdredge(m1_DICz, cluster=clust,
-                          subset=dc(z.MINTEMP, `I(z.MINTEMP^2)`) && 
-                                 dc(z.TTMIDN, `I(z.TTMIDN^2)`) &&
-                                 !(z.pROADS && z.pTREE) &&
-                                 !(z.pTREE && z.D_TRE)
-                          , rank='DIC', trace=T)
-})
-save(m1_DICz_set1, file='m1_DICz_set1.Rdata')
-stopCluster(clust)
-load('m1_DICz_set1.Rdata')
-subset(m1_DICz_set1, delta<4)
 
 
 
