@@ -133,6 +133,7 @@ system.time({
 # user  system elapsed 
 # 1.681   0.689  29.783 
 save(modset_habz1, file='modset_habz1.Rdata')
+load('modset_habz1.Rdata')
 subset(modset_habz1, delta<4)
 subset(modset_habz1, delta<10)
 
@@ -278,8 +279,40 @@ subset(m1z_set1, delta<4)
 subset(m1z_set1, delta<2)
 
 
+### "Simpler habitat" set: GLMM with nested RE. Only those hab vars that are present in all four d<4 hab models.
+### (so that's EDGED and pTREE)
 
+m2 <- glmer(OCC_PIPS  ~ fSECTION*TURB + 
+              MINTEMP + 
+              DAYNO +
+              TTMIDN +
+              I(TTMIDN^2) + 
+              WINDS +
+              EDGED +
+              pTREE + 
+              (1|SITE/TRSCT), offset=log(AREA_ha), 
+            data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail')
+# Standardise predictors:
+m2z <- standardize(m2)
 
+m2z_set1 <- dredge(m2z, subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), evaluate=F)
+length(m2z_set1)
+
+# Set up cluster:
+clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
+clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
+clusterExport(clust, "bats_nona")
+clusterExport(clust, "glmer")
+clusterExport(clust, "fixef")
+
+system.time({
+  m2z_set1 <- pdredge(m2z, cluster=clust, 
+                      subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=T)  
+})
+save(m2z_set1, file='m2z_set1.Rdata')
+subset(m2z_set1, delta<4)
+
+model.avg(m2z_set1, subset = delta < 4)
 
 
 
