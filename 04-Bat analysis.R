@@ -567,3 +567,35 @@ clusterExport(clust, "fixef")
 system.time({ temp <- clusterCall(clust, sim_ALL, m2z) })
 
 preds_RE <- matrix(unlist(temp), byrow=T, ncol=10)
+
+preds_RE_single <- preds_RE[,1:5]
+preds_RE_mult <- preds_RE[,6:10]
+
+par(mfrow=c(1,2))
+bars_single <- barplot(preds_single$pts1_single, 
+                       ylim=c(0, max(preds_RE)),
+                       names.arg=c('0-100','100-200','200-300','300-400','400-500'),
+                       main='Single turbine',
+                       xlab='Distance band (m)',
+                       ylab='Probability of a bat pass / ha'
+)
+arrows(bars_single, preds_single$X2.5., 
+       bars_single, preds_single$X97.5., 
+       code=3, length=0.1, angle=90)
+arrows(bars_single+1/25, apply(preds_RE_single, 2, function(x) quantile(x, probs=c(0.025))), 
+       bars_single+1/25, apply(preds_RE_single, 2, function(x) quantile(x, probs=c(0.975))), 
+       code=3, length=0.1, angle=90, col='darkred', lwd=1.5)
+
+bars_mult <- barplot(preds_mult$pts1_mult, 
+                     ylim=c(0, max(preds_RE)),
+                     names.arg=c('0-100','100-200','200-300','300-400','400-500'),
+                     main='Single turbine',
+                     xlab='Distance band (m)',
+                     ylab='Probability of a bat pass / ha'
+)
+arrows(bars_mult, preds_mult$X2.5., 
+       bars_mult, preds_mult$X97.5., 
+       code=3, length=0.1, angle=90)
+arrows(bars_mult+1/25, apply(preds_RE_mult, 2, function(x) quantile(x, probs=c(0.025))), 
+       bars_mult+1/25, apply(preds_RE_mult, 2, function(x) quantile(x, probs=c(0.975))), 
+       code=3, length=0.1, angle=90, col='darkred', lwd=1.5)
