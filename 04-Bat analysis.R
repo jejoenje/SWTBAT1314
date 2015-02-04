@@ -464,41 +464,41 @@ preds_mult$upr <- linkinv(p_multp %*% summary(m2z_av)$avg.model[,1] + 1.96*p_mul
 
 # PLOT:
 
-fig1 <- function() {
-  par(mfrow=c(1,2))
-  bars_single <- barplot(preds_single$pts2_single, 
-                         ylim=c(0, max(c(preds_single$X97.5.,preds_mult$X97.5.))),
-                         names.arg=c('0-100','100-200','200-300','300-400','400-500'),
-                         main='Single turbine',
-                         xlab='Distance band (m)',
-                         ylab='Probability of a bat pass / ha'
-  )
-  arrows(bars_single, preds_single$X2.5., 
-         bars_single, preds_single$X97.5., 
-         code=3, length=0.1, angle=90)
-  arrows(bars_single+1/50, preds_single$lwr, 
-         bars_single+1/50, preds_single$upr, 
-         code=0, length=0.1, angle=90, col='red',lty='dashed')
-  
-  points(bars_single, obs_single, cex=1.5, pch=16, col='black')
-  
-  bars_mult <- barplot(preds_mult$pts2_mult, 
+
+par(mfrow=c(1,2))
+bars_single <- barplot(preds_single$pts2_single, 
                        ylim=c(0, max(c(preds_single$X97.5.,preds_mult$X97.5.))),
                        names.arg=c('0-100','100-200','200-300','300-400','400-500'),
-                       main='Multiple turbines',
+                       main='Single turbine',
                        xlab='Distance band (m)',
                        ylab='Probability of a bat pass / ha'
-  )
-  arrows(bars_mult, preds_mult$X2.5., 
-         bars_mult, preds_mult$X97.5., 
-         code=3, length=0.1, angle=90)
-  arrows(bars_mult+1/50, preds_mult$lwr, 
-         bars_mult+1/50, preds_mult$upr, 
-         code=0, length=0.1, angle=90, col='red',lty='dashed')
-  
-  points(bars_mult, obs_multp, cex=1.5, pch=16, col='black')
-  
-}
+)
+arrows(bars_single, preds_single$X2.5., 
+       bars_single, preds_single$X97.5., 
+       code=3, length=0.1, angle=90)
+arrows(bars_single+1/50, preds_single$lwr, 
+       bars_single+1/50, preds_single$upr, 
+       code=0, length=0.1, angle=90, col='red',lty='dashed')
+
+points(bars_single, obs_single, cex=1.5, pch=16, col='black')
+
+bars_mult <- barplot(preds_mult$pts2_mult, 
+                     ylim=c(0, max(c(preds_single$X97.5.,preds_mult$X97.5.))),
+                     names.arg=c('0-100','100-200','200-300','300-400','400-500'),
+                     main='Multiple turbines',
+                     xlab='Distance band (m)',
+                     ylab='Probability of a bat pass / ha'
+)
+arrows(bars_mult, preds_mult$X2.5., 
+       bars_mult, preds_mult$X97.5., 
+       code=3, length=0.1, angle=90)
+arrows(bars_mult+1/50, preds_mult$lwr, 
+       bars_mult+1/50, preds_mult$upr, 
+       code=0, length=0.1, angle=90, col='red',lty='dashed')
+
+points(bars_mult, obs_multp, cex=1.5, pch=16, col='black')
+
+
 
 ###
 ### Same prediction but with 'full' model:
@@ -517,6 +517,53 @@ pts_single_full <- predict(m2z, type='response', re.form=NA, newdata=data.frame(
   z.pTREE=rep(0, 5)
   ))
 
-extractFixef <- function(x) return(fixef(x))
-boo01 <- bootMer(m2z, extractFixef, nsim = 100, .progress='txt', use.u=TRUE)
 
+sim_ALL <- function(mod) {
+  out <- as.data.frame(NULL)
+  for(i in 1:50) {
+    simdat <- attr(mod, 'frame')
+    simdat$AREA_ha <- exp(m2z@resp$offset)
+    simdat$OCC_PIPS <- as.vector(unlist(simulate(mod)))
+    sim_fit <- update(mod, .~., data=simdat)
+    out <- rbind(out, 
+      c(
+        predict(sim_fit, type='response', re.form=NA, newdata=data.frame(
+          fSECTION=as.factor(1:5),
+          c.TURB=rep(-0.5639652, 5),
+          z.MINTEMP=rep(0, 5),
+          z.DAYNO=rep(0, 5),
+          z.TTMIDN=rep(0, 5),
+          z.WINDS=rep(0, 5),
+          z.EDGED=rep(0, 5),
+          z.pTREE=rep(0, 5))
+          ),
+        predict(sim_fit, type='response', re.form=NA, newdata=data.frame(
+          fSECTION=as.factor(1:5),
+          c.TURB=rep(0.4360348, 5),
+          z.MINTEMP=rep(0, 5),
+          z.DAYNO=rep(0, 5),
+          z.TTMIDN=rep(0, 5),
+          z.WINDS=rep(0, 5),
+          z.EDGED=rep(0, 5),
+          z.pTREE=rep(0, 5))
+          )
+        )
+    )
+  }
+  return(out)
+}
+
+### test
+#sim_ALL(m2z)
+
+# Set up multicluster:
+clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
+clust <- try(makeCluster(getOption("cl.cores", 24), type = clusterType))
+clusterExport(clust, "bats_nona")
+clusterExport(clust, "m2z")
+clusterExport(clust, "glmer")
+clusterExport(clust, "fixef")
+
+system.time({ temp <- clusterCall(clust, sim_ALL, m2z) })
+
+preds_RE <- matrix(unlist(temp), byrow=T, ncol=10)
