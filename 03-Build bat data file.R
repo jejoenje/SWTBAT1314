@@ -112,6 +112,20 @@ bats <- bats[!(bats$SITE=='Letham Far North T2' & bats$TRSCT=='NW' & bats$SECTIO
 bats <- bats[!(bats$SITE=='Mid Cambushinnie' & bats$TRSCT=='S' & bats$SECTION=='5'),]
 bats <- bats[!(bats$SITE=='Nisbet Hill' & bats$TRSCT=='N' & bats$SECTION=='5'),]
 bats <- bats[!(bats$SITE=='Wester Essendy' & bats$TRSCT=='W' & bats$SECTION=='4'),]
+bats <- bats[!(bats$SITE=='Alderston Mains' & bats$TRSCT=='N' & bats$SECTION=='5'),]
+bats <- bats[!(bats$SITE=='Park Cottage' & bats$TRSCT=='N' & bats$SECTION=='4'),]
+bats <- bats[!(bats$SITE=='Islabank' & bats$s_dtime=='2013-06-20 23:03:59'),]
+# This is a duplicate (actually wrongly labelled as part of this transect):
+bats <- bats[!(bats$SITE=='Islabank' & bats$s_dtime=='2013-06-20 23:03:59'),]
+
+# Clean out oddly duplicated records for SURVEYID 'Park Cottage-3'.
+# temp <- bats[bats$SURVEYID=='Park Cottage-3',]; temp <- droplevels(temp)
+# temp_S <- temp[temp$TRSCT=='S',]; temp_S <- droplevels(temp_S)
+# temp_W <- temp[temp$TRSCT=='W',]; temp_W <- droplevels(temp_W)
+# temp <- rbind(ddply(temp_S, .(fSECTION), unique),ddply(temp_W, .(fSECTION), unique))
+# bats <- bats[!(bats$SURVEYID=='Park Cottage-3'),]
+# bats <- rbind(bats, temp)
+
 bats <- droplevels(bats)
 
 ### Match habitat data
@@ -127,20 +141,20 @@ bats <- merge(bats, sections2, 'id')
 ### Match altitude data?
 
 ### Calculate standardised wind speed per site/visit:
-out <- as.data.frame(NULL)
-for(i in 1:nlevels(bats$SURVEYID)) {
-  survid <- bats[bats$SURVEYID==levels(bats$SURVEYID)[i],]
-  out <- rbind(out, data.frame(SURVEYID=survid$SURVEYID,
-                               TRSCT=survid$TRSCT,
-                               SECTION=survid$SECTION,
-                               sWINDS=as.vector(scale(survid$WINDS))))
-}
-out$id2 <- paste(out$SURVEYID, out$TRSCT, out$SECTION, sep='-')
-out <- subset(out, select=c('id2','sWINDS'))
-bats$id2 <- paste(bats$SURVEYID, bats$TRSCT, bats$SECTION, sep='-')
-bats <- merge(bats, out, 'id2')
-bats$id <- NULL
-bats$id2 <- NULL
+# out <- as.data.frame(NULL)
+# for(i in 1:nlevels(bats$SURVEYID)) {
+#   survid <- bats[bats$SURVEYID==levels(bats$SURVEYID)[i],]
+#   out <- rbind(out, data.frame(SURVEYID=survid$SURVEYID,
+#                                TRSCT=survid$TRSCT,
+#                                SECTION=survid$SECTION,
+#                                sWINDS=as.vector(scale(survid$WINDS))))
+# }
+# out$id2 <- paste(out$SURVEYID, out$TRSCT, out$SECTION, sep='-')
+# out <- subset(out, select=c('id2','sWINDS'))
+# bats$id2 <- paste(bats$SURVEYID, bats$TRSCT, bats$SECTION, sep='-')
+# bats <- merge(bats, out, 'id2')
+# bats$id <- NULL
+# bats$id2 <- NULL
 
 ### Which sections are smaller than half the "supposed" size (1ha)?
 bats[bats$AREA_M2<5000,]
@@ -158,7 +172,7 @@ bats <- droplevels(bats)
 
 ### Which sections are more than twice the "supposed" size (1ha)?
 test <- bats[bats$AREA_M2>20000,]
-test <- subset(test, select=c('SITE','TRSCT','SECTION','PASSES'))
+test <- subset(test, select=c('SITE','SURVEYID', 'TRSCT','SECTION','PASSES','AREA_M2'))
 test <- unique(test)
 test
 ### All the following are retained:
@@ -172,14 +186,18 @@ test
 ### - West Lodge Balmule-S-2; perpendicular to transect dir
 ### - Wester Essendy-N-4; perpendicular to transect dir
 
+bats[bats$SURVEYID=='Park Cottage-3',]
+
 ### Match external min air temp data:
 weather <- rbind(weather13, weather14)
 weather <- subset(weather, select=c('ob_end_time','min_air_temp','min_air_temp_q'))
-weather <- weather[weather$min_air_temp==1,]
+weather <- weather[weather$min_air_temp_q==1,]
 weather$DATE <- format(strptime(as.vector(weather$ob_end_time), '%d/%m/%Y %H:%M'),'%Y-%m-%d')
 weather2 <- subset(weather, select=c('DATE','min_air_temp'))
 weather2$cdate <- as.character(weather2$DATE)
 weather2$DATE <- NULL
+weather2 <- weather2[!is.na(weather2$min_air_temp),]
+weather2 <- weather2[!duplicated(weather2),]
 bats$cdate <- as.character(bats$DATE)
 bats <- merge(bats, weather2, 'cdate')
 bats$cdate <- NULL
@@ -192,6 +210,8 @@ weather$DATE <- format(strptime(as.vector(weather$ob_end_time), '%d/%m/%Y %H:%M'
 weather2 <- subset(weather, select=c('DATE','max_air_temp'))
 weather2$cdate <- as.character(weather2$DATE)
 weather2$DATE <- NULL
+weather2 <- weather2[!is.na(weather2$max_air_temp),]
+weather2 <- weather2[!duplicated(weather2),]
 bats$cdate <- as.character(bats$DATE)
 bats <- merge(bats, weather2, 'cdate')
 bats$cdate <- NULL
@@ -201,3 +221,4 @@ bats <- bats[order(bats$DATE, bats$SITE, bats$TRSCT, bats$SECTION),]
 
 ### Write output for analysis:
 write.csv(bats,'data/BAT DATA 2013 and 2014 MASTER.csv',row.names=F)
+

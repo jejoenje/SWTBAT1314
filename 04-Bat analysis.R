@@ -24,6 +24,10 @@ bats$fSECTION <- factor(bats$fSECTION)
 is.factor(bats$fSECTION)
 is.factor(bats$NOTURB)
 
+### Check transect section inventory - only for housekeeping/checking purposes:
+temp <- ddply(bats, .(SITE, TRSCT, fSECTION), summarise, noDates=length(unique(DATE)), noObs=length(DATE))
+write.csv(temp, 'temp.csv', row.names=F)
+
 ### Proportion of zero's per site:
 tapply(bats$ALL_PIPS, bats$SITE, function(x) sum(x==0)/length(x))
 ### Average proportion of zero's per site:
@@ -464,8 +468,7 @@ preds_mult$upr <- linkinv(p_multp %*% summary(m2z_av)$avg.model[,1] + 1.96*p_mul
 
 # PLOT:
 
-
-par(mfrow=c(1,2))
+par(mfrow=c(2,2))
 bars_single <- barplot(preds_single$pts2_single, 
                        ylim=c(0, max(c(preds_single$X97.5.,preds_mult$X97.5.))),
                        names.arg=c('0-100','100-200','200-300','300-400','400-500'),
@@ -476,9 +479,10 @@ bars_single <- barplot(preds_single$pts2_single,
 arrows(bars_single, preds_single$X2.5., 
        bars_single, preds_single$X97.5., 
        code=3, length=0.1, angle=90)
-arrows(bars_single+1/50, preds_single$lwr, 
-       bars_single+1/50, preds_single$upr, 
-       code=0, length=0.1, angle=90, col='red',lty='dashed')
+# Add Bolker prediction interval:
+# arrows(bars_single+1/50, preds_single$lwr, 
+#        bars_single+1/50, preds_single$upr, 
+#        code=0, length=0.1, angle=90, col='red',lty='dashed')
 
 points(bars_single, obs_single, cex=1.5, pch=16, col='black')
 
@@ -492,9 +496,10 @@ bars_mult <- barplot(preds_mult$pts2_mult,
 arrows(bars_mult, preds_mult$X2.5., 
        bars_mult, preds_mult$X97.5., 
        code=3, length=0.1, angle=90)
-arrows(bars_mult+1/50, preds_mult$lwr, 
-       bars_mult+1/50, preds_mult$upr, 
-       code=0, length=0.1, angle=90, col='red',lty='dashed')
+# Add Bolker prediction interval:
+# arrows(bars_mult+1/50, preds_mult$lwr, 
+#        bars_mult+1/50, preds_mult$upr, 
+#        code=0, length=0.1, angle=90, col='red',lty='dashed')
 
 points(bars_mult, obs_multp, cex=1.5, pch=16, col='black')
 
@@ -503,21 +508,87 @@ points(bars_mult, obs_multp, cex=1.5, pch=16, col='black')
 ###
 ### Same prediction but with 'full' model:
 ### 
+p_single_full <- cbind(rep(1,5),          # Intercept (fSECTION 1)
+                       c(0,1,0,0,0),      # fSECTION 2
+                       c(0,0,1,0,0),      # fSECTION 3
+                       c(0,0,0,1,0),      # fSECTION 4
+                       c(0,0,0,0,1),      # fSECTION 5
+                       rep(-0.5639652,5), # SINGLE TURB = -0.5639652
+                       rep(0,5),           # z.MINTEMP                
+                       rep(0,5),          # z.DAYNO
+                       rep(0,5),          # z.TTMIDN,
+                       rep(0,5),          # I(z.TTMIDN^2),
+                       rep(0,5),          # z.WINDS                       
+                       rep(0,5),          # z.EDGED
+                       rep(0,5),          # z.pTREE
+                       cbind(c(0,1,0,0,0),# Interaction, fsection 2
+                             c(0,0,1,0,0),# Interaction, fsection 3
+                             c(0,0,0,1,0),# Interaction, fsection 4
+                             c(0,0,0,0,1))*-0.5639652 # fsection 5 - SINGLE TURB
+                      )
+p_mult_full   <- cbind(rep(1,5),          # Intercept (fSECTION 1)
+                       c(0,1,0,0,0),      # fSECTION 2
+                       c(0,0,1,0,0),      # fSECTION 3
+                       c(0,0,0,1,0),      # fSECTION 4
+                       c(0,0,0,0,1),      # fSECTION 5
+                       rep(0.4360348,5), # SINGLE TURB = 0.4360348
+                       rep(0,5),           # z.MINTEMP                
+                       rep(0,5),          # z.DAYNO
+                       rep(0,5),          # z.TTMIDN,
+                       rep(0,5),          # I(z.TTMIDN^2),
+                       rep(0,5),          # z.WINDS                       
+                       rep(0,5),          # z.EDGED
+                       rep(0,5),          # z.pTREE
+                       cbind(c(0,1,0,0,0),# Interaction, fsection 2
+                             c(0,0,1,0,0),# Interaction, fsection 3
+                             c(0,0,0,1,0),# Interaction, fsection 4
+                             c(0,0,0,0,1))*0.4360348 # fsection 5 - SINGLE TURB
+)
 
-linkinv(p_single %*% fixef(m2z))
+m2z_sim <- sim(m2z, 1000)@fixef
+temp <- apply(m2z_sim, 1, function(x) linkinv(p_single_full %*% x))
+pts_single_full <- data.frame(mean=apply(temp, 1, mean))
+pts_single_full <- cbind(pts_single_full, t(apply(temp, 1, function(x) quantile(x, probs=c(0.025, 0.975)))))
+temp <- apply(m2z_sim, 1, function(x) linkinv(p_mult_full %*% x))
+pts_mult_full <- data.frame(mean=apply(temp, 1, mean))
+pts_mult_full <- cbind(pts_mult_full, t(apply(temp, 1, function(x) quantile(x, probs=c(0.025, 0.975)))))
 
-pts_single_full <- predict(m2z, type='response', re.form=NA, newdata=data.frame(
-  fSECTION=as.factor(1:5),
-  c.TURB=rep(-0.5639652, 5),
-  z.MINTEMP=rep(0, 5),
-  z.DAYNO=rep(0, 5),
-  z.TTMIDN=rep(0, 5),
-  z.WINDS=rep(0, 5),
-  z.EDGED=rep(0, 5),
-  z.pTREE=rep(0, 5)
-  ))
+bars_single <- barplot(pts_single_full$mean, 
+                       ylim=c(0, max(c(pts_single_full[,3], pts_mult_full[,3]))),
+                       names.arg=c('0-100','100-200','200-300','300-400','400-500'),
+                       main='Single turbine',
+                       xlab='Distance band (m)',
+                       ylab='Probability of a bat pass / ha'
+)
+arrows(bars_single, pts_single_full[,2], 
+       bars_single, pts_single_full[,3], 
+       code=3, length=0.1, angle=90)
+
+bars_mult <- barplot(pts_mult_full$mean, 
+                       ylim=c(0, max(c(pts_single_full[,3], pts_mult_full[,3]))),
+                       names.arg=c('0-100','100-200','200-300','300-400','400-500'),
+                       main='Multiple turbines',
+                       xlab='Distance band (m)',
+                       ylab='Probability of a bat pass / ha'
+)
+arrows(bars_mult, pts_mult_full[,2], 
+       bars_mult, pts_mult_full[,3], 
+       code=3, length=0.1, angle=90)
 
 
+
+
+###
+### 'COUNT' MODEL USING FULL STRUCTURE FROM BINOMIAL MODEL ABOVE
+### Also use standardised predictors from binomial model.
+
+
+
+
+
+
+######
+###### WEIRD ATTEMPT AT TRYING TO INCORPORATE RE UNCERTAINTY IN PREDICTIONS:
 sim_ALL <- function(mod) {
   out <- as.data.frame(NULL)
   for(i in 1:50) {
