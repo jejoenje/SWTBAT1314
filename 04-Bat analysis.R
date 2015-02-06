@@ -27,7 +27,7 @@ is.factor(bats$NOTURB)
 
 ### Check transect section inventory - only for housekeeping/checking purposes:
 temp <- ddply(bats, .(SITE, TRSCT, fSECTION), summarise, noDates=length(unique(DATE)), noObs=length(DATE))
-write.csv(temp, 'temp.csv', row.names=F)
+#write.csv(temp, 'temp.csv', row.names=F)
 
 ### Proportion of zero's per site:
 tapply(bats$ALL_PIPS, bats$SITE, function(x) sum(x==0)/length(x))
@@ -366,14 +366,15 @@ system.time({
                       subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=T)  
 })
 # Nils' machine, def optimiser, def maxfun:
-
+# user  system elapsed 
+# 2.745   1.737 486.680 
 # Nils' machine, bobyqa, 2e7:
 # user  system elapsed 
 # 2.510   1.278 153.220
 
 # save(m2z_set1, file='m2z_set1.Rdata')
-subset(m2z_set1, delta<4)
 load('m2z_set1.Rdata')
+subset(m2z_set1, delta<4)
 
 # m2z_av <- model.avg(m2z_set1, delta<4, fit=T, trace=T)
 # save(m2z_av, file='m2z_av.Rdata')
@@ -393,22 +394,139 @@ linkinv <- m2z@resp$family$linkinv
 # Standardised values for single and multiple turb
 c.turb <- unique(m2z@frame$c.TURB)[order(unique(m2z@frame$c.TURB))]
 
-p1 <- c(1,0,0,0,0,   # fSECTION 1
-        0,           # z.DAYNO
-        0,           # z.EDGED
-        0,           # z.TTMIDN,
-        0,           # I(z.TTMIDN^2)
-        0,           # z.WINDS
-        0,           # z.pTREE
-        c.turb[1],   # SINGLE TURB
-        0,           # z.MINTEMP
-        0,           # TURB*section 2
-        0,           # TURB*section 3
-        0,           # TURB*section 4
-        0            # TURB*section 5
-        )
+### TEST PREDICTIONS WITH PREDICT() AND MANUALLY USING FULL MODEL:
+# Automatic prediction, full model, single turbine:
+predict(m2z, type='response', re.form=NA, newdata=data.frame(
+  fSECTION=factor(1:5),
+  c.TURB=rep(c.turb[1],5),
+  z.MINTEMP=rep(0,5),
+  z.DAYNO=rep(0,5),
+  z.TTMIDN=rep(0,5),
+  z.WINDS=rep(0,5),
+  z.EDGED=rep(0,5),
+  z.pTREE=rep(0,5)
+))
+# Automatic prediction, full model, multiple turbine:
+predict(m2z, type='response', re.form=NA, newdata=data.frame(
+  fSECTION=factor(1:5),
+  c.TURB=rep(c.turb[2],5),
+  z.MINTEMP=rep(0,5),
+  z.DAYNO=rep(0,5),
+  z.TTMIDN=rep(0,5),
+  z.WINDS=rep(0,5),
+  z.EDGED=rep(0,5),
+  z.pTREE=rep(0,5)
+))
 
-linkinv(p1 %*% summary(m2z_av)$avg.model[,1])
+# Manual prediction, full model, single turbine:
+p_full_single <- cbind(
+  rep(1,5),           # Intercept
+  c(0,1,0,0,0),       # fSECTION2
+  c(0,0,1,0,0),       # fSECTION3
+  c(0,0,0,1,0),       # fSECTION4
+  c(0,0,0,0,1),       # fSECTION5
+  rep(c.turb[1],5),   # c.TURB [SINGLE]
+  rep(0, 5),          # z.MINTEMP 
+  rep(0, 5),          # z.DAYNO
+  rep(0, 5),          # z.TTMIDN
+  rep(0, 5),          # z.TTMIDN^2
+  rep(0, 5),          # z.WINDS
+  rep(0, 5),          # z.EDGED
+  rep(0, 5),          # z.pTREE
+  cbind(
+    c(0,1,0,0,0),       # fSECTION2*c.TURB
+    c(0,0,1,0,0),       # fSECTION3*c.TURB
+    c(0,0,0,1,0),       # fSECTION4*c.TURB
+    c(0,0,0,0,1)        # fSECTION5*c.TURB
+  )*c.turb[1]
+)
+linkinv(p_full_single %*% fixef(m2z))
+
+p_full_mult <- cbind(
+  rep(1,5),           # Intercept
+  c(0,1,0,0,0),       # fSECTION2
+  c(0,0,1,0,0),       # fSECTION3
+  c(0,0,0,1,0),       # fSECTION4
+  c(0,0,0,0,1),       # fSECTION5
+  rep(c.turb[2],5),   # c.TURB [SINGLE]
+  rep(0, 5),          # z.MINTEMP 
+  rep(0, 5),          # z.DAYNO
+  rep(0, 5),          # z.TTMIDN
+  rep(0, 5),          # z.TTMIDN^2
+  rep(0, 5),          # z.WINDS
+  rep(0, 5),          # z.EDGED
+  rep(0, 5),          # z.pTREE
+  cbind(
+    c(0,1,0,0,0),       # fSECTION2*c.TURB
+    c(0,0,1,0,0),       # fSECTION3*c.TURB
+    c(0,0,0,1,0),       # fSECTION4*c.TURB
+    c(0,0,0,0,1)        # fSECTION5*c.TURB
+  )*c.turb[2]
+)
+linkinv(p_full_mult %*% fixef(m2z))
+
+
+p_single <- cbind(
+  rep(1,5),           # Intercept
+  c(0,1,0,0,0),       # fSECTION2
+  c(0,0,1,0,0),       # fSECTION3
+  c(0,0,0,1,0),       # fSECTION4
+  c(0,0,0,0,1),       # fSECTION5
+  rep(0,5),           # z.DAYNO
+  rep(0,5),           # z.EDGED
+  rep(0,5),           # z.TTMIDN
+  rep(0,5),           # z.TTMIDN^2
+  rep(0,5),           # z.WINDS
+  rep(0,5),           # z.pTREE
+  rep(c.turb[1],5),   # c.TURB
+  rep(0,5),           # z.MINTEMP
+  cbind(
+    c(0,1,0,0,0),       # fSECTION2*c.TURB
+    c(0,0,1,0,0),       # fSECTION3*c.TURB
+    c(0,0,0,1,0),       # fSECTION4*c.TURB
+    c(0,0,0,0,1)        # fSECTION5*c.TURB
+    )*c.turb[1]
+  )
+# Point predictions, SINGLE turbine:
+pts1_single <- linkinv(p_single %*% summary(m2z_av)$avg.model[,1])
+
+predict(m2z_av, type='link', backtransform=T, re.form=NA, newdata=data.frame(
+  fSECTION=factor(1:5),
+  z.DAYNO=0,
+  z.EDGED=0,
+  z.TTMIDN=0,
+  z.WINDS=0,
+  z.pTREE=0,
+  c.TURB=c.turb[1],
+  z.MINTEMP=0,
+  AREA_ha=1
+  ))
+
+p_multp <- cbind(
+  rep(1,5),           # Intercept
+  c(0,1,0,0,0),       # fSECTION2
+  c(0,0,1,0,0),       # fSECTION3
+  c(0,0,0,1,0),       # fSECTION4
+  c(0,0,0,0,1),       # fSECTION5
+  rep(0,5),           # z.DAYNO
+  rep(0,5),           # z.EDGED
+  rep(0,5),           # z.TTMIDN
+  rep(0,5),           # z.TTMIDN^2
+  rep(0,5),           # z.WINDS
+  rep(0,5),           # z.pTREE
+  rep(c.turb[2],5),   # c.TURB
+  rep(0,5),           # z.MINTEMP
+  cbind(
+    c(0,1,0,0,0),       # fSECTION2*c.TURB
+    c(0,0,1,0,0),       # fSECTION3*c.TURB
+    c(0,0,0,1,0),       # fSECTION4*c.TURB
+    c(0,0,0,0,1)        # fSECTION5*c.TURB
+  )*c.turb[2]
+)
+# Point predictions, MULTIPLE turbine:
+pts1_mult <- linkinv(p_multp %*% summary(m2z_av)$avg.model[,1])
+
+
 
 p_single <- cbind(rep(1,5),          # Intercept (fSECTION 1)
                   c(0,1,0,0,0),      # fSECTION 2
