@@ -137,6 +137,8 @@ system.time({
 })
 # user  system elapsed 
 # 1.581   0.673  43.787 Nils
+# user  system elapsed 
+# 1.607   0.674  43.854 Nils
 
 # save(modset_habz1, file='modset_habz1.Rdata')
 load('modset_habz1.Rdata')
@@ -259,7 +261,15 @@ m1 <- glmer(OCC_PIPS  ~ fSECTION*TURB +
                         EDGED +
                         pTREE + 
                         (1|SITE/TRSCT), offset=log(AREA_ha), 
-            data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail')
+            data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail', 
+            control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
+# Nils' machine, default maxfun, default optimizer:
+# user  system elapsed 
+# 25.436   0.058  25.488
+# Nils' machine, maxfun 2e7, bobyqa:
+# user  system elapsed 
+# 1.148   0.002   1.149 
+
 # Standardise predictors:
 m1z <- standardize(m1)
 
@@ -272,13 +282,19 @@ clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
 clusterExport(clust, "bats_nona")
 clusterExport(clust, "glmer")
 clusterExport(clust, "fixef")
+clusterExport(clust, "glmerControl")
 
-# system.time({
-#   m1z_set1 <- pdredge(m1z, cluster=clust, 
-#                       subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=T)  
-# })
+system.time({
+  m1z_set1 <- pdredge(m1z, cluster=clust, 
+                      subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=T)  
+})
+# Nils' machine, default optimiser, default maxfun:
 # user   system  elapsed 
 # 12.258    7.935 2497.640 
+# Nils' machine, bobyqa, maxfun 2e7:
+# user  system elapsed 
+# 11.907   5.309 693.445 
+
 # save(m1z_set1, file='m1z_set1.Rdata')
 # stopCluster(clust)
 load('m1z_set1.Rdata')
@@ -291,8 +307,20 @@ summary(m1z_av)
 
 ### "Simpler habitat" set: GLMM with nested RE. Only those hab vars that are present in all four d<4 hab models.
 ### (so that's EDGED and pTREE)
-
-m2 <- glmer(OCC_PIPS  ~ fSECTION*TURB + 
+# system.time({
+#   m2_def <- glmer(OCC_PIPS  ~ fSECTION*TURB + 
+#                 MINTEMP + 
+#                 DAYNO +
+#                 TTMIDN +
+#                 I(TTMIDN^2) + 
+#                 WINDS +
+#                 EDGED +
+#                 pTREE + 
+#                 (1|SITE/TRSCT), offset=log(AREA_ha), 
+#               data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail')
+#   })
+system.time({
+  m2 <- glmer(OCC_PIPS  ~ fSECTION*TURB + 
               MINTEMP + 
               DAYNO +
               TTMIDN +
@@ -301,11 +329,24 @@ m2 <- glmer(OCC_PIPS  ~ fSECTION*TURB +
               EDGED +
               pTREE + 
               (1|SITE/TRSCT), offset=log(AREA_ha), 
-            data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail')
+            data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail',
+            control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7))
+            ) })
+# Nils' machine, standard optimiser, standard maxfun:
+# user  system elapsed 
+# 9.773   0.026   9.796 
+# Nils' machine, bobyqa, maxfun 2e7:
+# user  system elapsed 
+# 0.967   0.003   0.96
+
 # Standardise predictors:
+# m2z_def <- standardize(m2_def)
 m2z <- standardize(m2)
 
+# m2z_def_set1 <- dredge(m2z_def, subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), evaluate=F)
 m2z_set1 <- dredge(m2z, subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), evaluate=F)
+
+# length(m2z_def_set1)
 length(m2z_set1)
 
 # Set up cluster:
@@ -314,17 +355,28 @@ clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
 clusterExport(clust, "bats_nona")
 clusterExport(clust, "glmer")
 clusterExport(clust, "fixef")
+clusterExport(clust, "glmerControl")
 
+# system.time({
+#   m2z_def_set1 <- pdredge(m2z_def, cluster=clust, 
+#                       subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=T)  
+# })
 system.time({
   m2z_set1 <- pdredge(m2z, cluster=clust, 
                       subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=T)  
 })
-save(m2z_set1, file='m2z_set1.Rdata')
+# Nils' machine, def optimiser, def maxfun:
+
+# Nils' machine, bobyqa, 2e7:
+# user  system elapsed 
+# 2.510   1.278 153.220
+
+# save(m2z_set1, file='m2z_set1.Rdata')
 subset(m2z_set1, delta<4)
 load('m2z_set1.Rdata')
 
-m2z_av <- model.avg(m2z_set1, delta<4, fit=T, trace=T)
-save(m2z_av, file='m2z_av.Rdata')
+# m2z_av <- model.avg(m2z_set1, delta<4, fit=T, trace=T)
+# save(m2z_av, file='m2z_av.Rdata')
 load('m2z_av.Rdata')
 #vcov(m2z_av)
 summary(m2z_av)
