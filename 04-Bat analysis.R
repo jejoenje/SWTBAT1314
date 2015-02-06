@@ -11,6 +11,7 @@ library(sp)
 library(MuMIn)
 library(snow)
 library(corrplot)
+library(plyr)
 
 source('../../../000_R/RSimExamples/helpjm.r')
 
@@ -112,7 +113,7 @@ length(modset_habz1)
 
 # Repeat above on all clusters:
 clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
-clust <- try(makeCluster(getOption("cl.cores", 24), type = clusterType))
+clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
 clusterExport(clust, "bats_nona")
 clusterExport(clust, "glmer")
 clusterExport(clust, "fixef")
@@ -135,8 +136,9 @@ system.time({
                          , trace=T)
 })
 # user  system elapsed 
-# 1.681   0.689  29.783 
-save(modset_habz1, file='modset_habz1.Rdata')
+# 1.581   0.673  43.787 Nils
+
+# save(modset_habz1, file='modset_habz1.Rdata')
 load('modset_habz1.Rdata')
 subset(modset_habz1, delta<4)
 subset(modset_habz1, delta<10)
@@ -266,23 +268,24 @@ length(m1z_set1)
 
 # Set up cluster:
 clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
-clust <- try(makeCluster(getOption("cl.cores", 24), type = clusterType))
+clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
 clusterExport(clust, "bats_nona")
 clusterExport(clust, "glmer")
 clusterExport(clust, "fixef")
 
-system.time({
-  m1z_set1 <- pdredge(m1z, cluster=clust, 
-                      subset=dc(z.MINTEMP, `I(z.MINTEMP^2)`) && 
-                        dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=T)  
-})
-save(m1z_set1, file='m1z_set1.Rdata')
-stopCluster(clust)
+# system.time({
+#   m1z_set1 <- pdredge(m1z, cluster=clust, 
+#                       subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=T)  
+# })
+# user   system  elapsed 
+# 12.258    7.935 2497.640 
+# save(m1z_set1, file='m1z_set1.Rdata')
+# stopCluster(clust)
 load('m1z_set1.Rdata')
 subset(m1z_set1, delta<4)
 subset(m1z_set1, delta<2)
-m1z_av <- model.avg(m1z_set1, delta<4, fit=T)
-save(m1z_av, file='m1z_av.Rdata')
+# m1z_av <- model.avg(m1z_set1, delta<4, fit=T)
+# save(m1z_av, file='m1z_av.Rdata')
 load('m1z_av.Rdata')
 summary(m1z_av)
 
