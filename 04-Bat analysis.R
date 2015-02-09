@@ -113,7 +113,7 @@ length(modset_habz1)
 
 # Repeat above on all clusters:
 clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
-clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
+clust <- try(makeCluster(getOption("cl.cores", 24), type = clusterType))
 clusterExport(clust, "bats_nona")
 clusterExport(clust, "glmer")
 clusterExport(clust, "fixef")
@@ -139,6 +139,8 @@ system.time({
 # 1.581   0.673  43.787 Nils
 # user  system elapsed 
 # 1.607   0.674  43.854 Nils
+# user  system elapsed 
+# 1.776   0.850  29.847 Tim
 
 # save(modset_habz1, file='modset_habz1.Rdata')
 load('modset_habz1.Rdata')
@@ -293,7 +295,10 @@ system.time({
 # 12.258    7.935 2497.640 
 # Nils' machine, bobyqa, maxfun 2e7:
 # user  system elapsed 
-# 11.907   5.309 693.445 
+# 11.907   5.309 693.445
+# Tim's machine, bobyqa, maxfun 2e7:
+# user  system elapsed 
+# 9.092   6.459 659.826 
 
 # save(m1z_set1, file='m1z_set1.Rdata')
 # stopCluster(clust)
@@ -371,6 +376,9 @@ system.time({
 # Nils' machine, bobyqa, 2e7:
 # user  system elapsed 
 # 2.510   1.278 153.220
+# Tim's machine, bobyqa, 2e7:
+# user  system elapsed 
+# 2.133   1.449 140.827
 
 # save(m2z_set1, file='m2z_set1.Rdata')
 load('m2z_set1.Rdata')
@@ -379,7 +387,7 @@ subset(m2z_set1, delta<4)
 # m2z_av <- model.avg(m2z_set1, delta<4, fit=T, trace=T)
 # save(m2z_av, file='m2z_av.Rdata')
 load('m2z_av.Rdata')
-#vcov(m2z_av)
+vcov(m2z_av)
 summary(m2z_av)
 summary(m2z_av)$avg.model
 
