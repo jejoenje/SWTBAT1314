@@ -396,7 +396,7 @@ c.turb <- unique(m2z@frame$c.TURB)[order(unique(m2z@frame$c.TURB))]
 
 ### TEST PREDICTIONS WITH PREDICT() AND MANUALLY USING FULL MODEL:
 # Automatic prediction, full model, single turbine:
-predict(m2z, type='response', re.form=NA, newdata=data.frame(
+predict(m2z, type='response', REform=NA, newdata=data.frame(
   fSECTION=factor(1:5),
   c.TURB=rep(c.turb[1],5),
   z.MINTEMP=rep(0,5),
@@ -404,10 +404,11 @@ predict(m2z, type='response', re.form=NA, newdata=data.frame(
   z.TTMIDN=rep(0,5),
   z.WINDS=rep(0,5),
   z.EDGED=rep(0,5),
-  z.pTREE=rep(0,5)
+  z.pTREE=rep(0,5),
+  AREA_ha=rep(1,5)
 ))
 # Automatic prediction, full model, multiple turbine:
-predict(m2z, type='response', re.form=NA, newdata=data.frame(
+predict(m2z, type='response', REform=NA, newdata=data.frame(
   fSECTION=factor(1:5),
   c.TURB=rep(c.turb[2],5),
   z.MINTEMP=rep(0,5),
@@ -415,7 +416,8 @@ predict(m2z, type='response', re.form=NA, newdata=data.frame(
   z.TTMIDN=rep(0,5),
   z.WINDS=rep(0,5),
   z.EDGED=rep(0,5),
-  z.pTREE=rep(0,5)
+  z.pTREE=rep(0,5),
+  AREA_ha=rep(1,5)
 ))
 
 # Manual prediction, full model, single turbine:
@@ -465,7 +467,37 @@ p_full_mult <- cbind(
 )
 linkinv(p_full_mult %*% fixef(m2z))
 
+###
+### Predictions with AVERAGED model.
+### Note that prediction frame (for manual predictions) will be different.
 
+### Try automatically:
+### Single turbine:
+predict(m2z_av, type='response', REform=NA, newdata=data.frame(
+  fSECTION=factor(1:5),
+  c.TURB=rep(c.turb[1],5),
+  z.MINTEMP=rep(0,5),
+  z.DAYNO=rep(0,5),
+  z.TTMIDN=rep(0,5),
+  z.WINDS=rep(0,5),
+  z.EDGED=rep(0,5),
+  z.pTREE=rep(0,5),
+  AREA_ha=rep(1,5)
+))
+### Multiple turbines:
+predict(m2z_av, type='response', REform=NA, newdata=data.frame(
+  fSECTION=factor(1:5),
+  c.TURB=rep(c.turb[2],5),
+  z.MINTEMP=rep(0,5),
+  z.DAYNO=rep(0,5),
+  z.TTMIDN=rep(0,5),
+  z.WINDS=rep(0,5),
+  z.EDGED=rep(0,5),
+  z.pTREE=rep(0,5),
+  AREA_ha=rep(1,5)
+))
+
+### Manual predictions:
 p_single <- cbind(
   rep(1,5),           # Intercept
   c(0,1,0,0,0),       # fSECTION2
@@ -489,18 +521,6 @@ p_single <- cbind(
   )
 # Point predictions, SINGLE turbine:
 pts1_single <- linkinv(p_single %*% summary(m2z_av)$avg.model[,1])
-
-predict(m2z_av, type='link', backtransform=T, re.form=NA, newdata=data.frame(
-  fSECTION=factor(1:5),
-  z.DAYNO=0,
-  z.EDGED=0,
-  z.TTMIDN=0,
-  z.WINDS=0,
-  z.pTREE=0,
-  c.TURB=c.turb[1],
-  z.MINTEMP=0,
-  AREA_ha=1
-  ))
 
 p_multp <- cbind(
   rep(1,5),           # Intercept
@@ -528,43 +548,8 @@ pts1_mult <- linkinv(p_multp %*% summary(m2z_av)$avg.model[,1])
 
 
 
-p_single <- cbind(rep(1,5),          # Intercept (fSECTION 1)
-                  c(0,1,0,0,0),      # fSECTION 2
-                  c(0,0,1,0,0),      # fSECTION 3
-                  c(0,0,0,1,0),      # fSECTION 4
-                  c(0,0,0,0,1),      # fSECTION 5
-                  rep(0,5),          # z.DAYNO
-                  rep(0,5),          # z.EDGED
-                  rep(0,5),          # z.TTMIDN,
-                  rep(0,5),          # I(z.TTMIDN^2),
-                  rep(0,5),          # z.WINDS
-                  rep(0,5),          # z.pTREE
-                  rep(c.turb[1],5),  # SINGLE TURB = -0.5639652
-                  rep(0,5),           # z.MINTEMP                  
-                  cbind(c(0,1,0,0,0),# Interaction, fsection 2
-                        c(0,0,1,0,0),# Interaction, fsection 3
-                        c(0,0,0,1,0),# Interaction, fsection 4
-                        c(0,0,0,0,1))*c.turb[1] # fsection 5 - SINGLE TURB
-                  )
 
-p_multp <- cbind(rep(1,5),          # Intercept (fSECTION 1)
-                  c(0,1,0,0,0),      # fSECTION 2
-                  c(0,0,1,0,0),      # fSECTION 3
-                  c(0,0,0,1,0),      # fSECTION 4
-                  c(0,0,0,0,1),      # fSECTION 5
-                  rep(0,5),          # z.DAYNO
-                  rep(0,5),          # z.EDGED
-                  rep(0,5),          # z.TTMIDN,
-                  rep(0,5),          # I(z.TTMIDN^2),
-                  rep(0,5),          # z.WINDS
-                  rep(0,5),          # z.pTREE
-                  rep(0,5),          # z.MINTEMP
-                  rep(c.turb[2],5),  # MULT TURB
-                  cbind(c(0,1,0,0,0),# Interaction, fsection 2
-                        c(0,0,1,0,0),# Interaction, fsection 3
-                        c(0,0,0,1,0),# Interaction, fsection 4
-                        c(0,0,0,0,1))*c.turb[2] # fsection 5 - MULT TURB
-)
+
 
 # Point predictions, SINGLE turbine:
 pts1_single <- linkinv(p_single %*% summary(m2z_av)$avg.model[,1])
