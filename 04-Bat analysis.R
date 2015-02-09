@@ -11,6 +11,7 @@ library(sp)
 library(MuMIn)
 library(snow)
 library(corrplot)
+library(plyr)
 
 source('../../../000_R/RSimExamples/helpjm.r')
 
@@ -26,7 +27,7 @@ is.factor(bats$NOTURB)
 
 ### Check transect section inventory - only for housekeeping/checking purposes:
 temp <- ddply(bats, .(SITE, TRSCT, fSECTION), summarise, noDates=length(unique(DATE)), noObs=length(DATE))
-write.csv(temp, 'temp.csv', row.names=F)
+#write.csv(temp, 'temp.csv', row.names=F)
 
 ### Proportion of zero's per site:
 tapply(bats$ALL_PIPS, bats$SITE, function(x) sum(x==0)/length(x))
@@ -112,7 +113,7 @@ length(modset_habz1)
 
 # Repeat above on all clusters:
 clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
-clust <- try(makeCluster(getOption("cl.cores", 24), type = clusterType))
+clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
 clusterExport(clust, "bats_nona")
 clusterExport(clust, "glmer")
 clusterExport(clust, "fixef")
@@ -135,8 +136,11 @@ system.time({
                          , trace=T)
 })
 # user  system elapsed 
-# 1.681   0.689  29.783 
-save(modset_habz1, file='modset_habz1.Rdata')
+# 1.581   0.673  43.787 Nils
+# user  system elapsed 
+# 1.607   0.674  43.854 Nils
+
+# save(modset_habz1, file='modset_habz1.Rdata')
 load('modset_habz1.Rdata')
 subset(modset_habz1, delta<4)
 subset(modset_habz1, delta<10)
@@ -257,7 +261,15 @@ m1 <- glmer(OCC_PIPS  ~ fSECTION*TURB +
                         EDGED +
                         pTREE + 
                         (1|SITE/TRSCT), offset=log(AREA_ha), 
-            data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail')
+            data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail', 
+            control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
+# Nils' machine, default maxfun, default optimizer:
+# user  system elapsed 
+# 25.436   0.058  25.488
+# Nils' machine, maxfun 2e7, bobyqa:
+# user  system elapsed 
+# 1.148   0.002   1.149 
+
 # Standardise predictors:
 m1z <- standardize(m1)
 
@@ -266,30 +278,49 @@ length(m1z_set1)
 
 # Set up cluster:
 clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
-clust <- try(makeCluster(getOption("cl.cores", 24), type = clusterType))
+clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
 clusterExport(clust, "bats_nona")
 clusterExport(clust, "glmer")
 clusterExport(clust, "fixef")
+clusterExport(clust, "glmerControl")
 
 system.time({
   m1z_set1 <- pdredge(m1z, cluster=clust, 
-                      subset=dc(z.MINTEMP, `I(z.MINTEMP^2)`) && 
-                        dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=T)  
+                      subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=T)  
 })
-save(m1z_set1, file='m1z_set1.Rdata')
-stopCluster(clust)
+# Nils' machine, default optimiser, default maxfun:
+# user   system  elapsed 
+# 12.258    7.935 2497.640 
+# Nils' machine, bobyqa, maxfun 2e7:
+# user  system elapsed 
+# 11.907   5.309 693.445 
+
+# save(m1z_set1, file='m1z_set1.Rdata')
+# stopCluster(clust)
 load('m1z_set1.Rdata')
 subset(m1z_set1, delta<4)
 subset(m1z_set1, delta<2)
-m1z_av <- model.avg(m1z_set1, delta<4, fit=T)
-save(m1z_av, file='m1z_av.Rdata')
+# m1z_av <- model.avg(m1z_set1, delta<4, fit=T)
+# save(m1z_av, file='m1z_av.Rdata')
 load('m1z_av.Rdata')
 summary(m1z_av)
 
 ### "Simpler habitat" set: GLMM with nested RE. Only those hab vars that are present in all four d<4 hab models.
 ### (so that's EDGED and pTREE)
-
-m2 <- glmer(OCC_PIPS  ~ fSECTION*TURB + 
+# system.time({
+#   m2_def <- glmer(OCC_PIPS  ~ fSECTION*TURB + 
+#                 MINTEMP + 
+#                 DAYNO +
+#                 TTMIDN +
+#                 I(TTMIDN^2) + 
+#                 WINDS +
+#                 EDGED +
+#                 pTREE + 
+#                 (1|SITE/TRSCT), offset=log(AREA_ha), 
+#               data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail')
+#   })
+system.time({
+  m2 <- glmer(OCC_PIPS  ~ fSECTION*TURB + 
               MINTEMP + 
               DAYNO +
               TTMIDN +
@@ -298,11 +329,24 @@ m2 <- glmer(OCC_PIPS  ~ fSECTION*TURB +
               EDGED +
               pTREE + 
               (1|SITE/TRSCT), offset=log(AREA_ha), 
-            data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail')
+            data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail',
+            control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7))
+            ) })
+# Nils' machine, standard optimiser, standard maxfun:
+# user  system elapsed 
+# 9.773   0.026   9.796 
+# Nils' machine, bobyqa, maxfun 2e7:
+# user  system elapsed 
+# 0.967   0.003   0.96
+
 # Standardise predictors:
+# m2z_def <- standardize(m2_def)
 m2z <- standardize(m2)
 
+# m2z_def_set1 <- dredge(m2z_def, subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), evaluate=F)
 m2z_set1 <- dredge(m2z, subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), evaluate=F)
+
+# length(m2z_def_set1)
 length(m2z_set1)
 
 # Set up cluster:
@@ -311,17 +355,29 @@ clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
 clusterExport(clust, "bats_nona")
 clusterExport(clust, "glmer")
 clusterExport(clust, "fixef")
+clusterExport(clust, "glmerControl")
 
+# system.time({
+#   m2z_def_set1 <- pdredge(m2z_def, cluster=clust, 
+#                       subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=T)  
+# })
 system.time({
   m2z_set1 <- pdredge(m2z, cluster=clust, 
                       subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=T)  
 })
-save(m2z_set1, file='m2z_set1.Rdata')
-subset(m2z_set1, delta<4)
-load('m2z_set1.Rdata')
+# Nils' machine, def optimiser, def maxfun:
+# user  system elapsed 
+# 2.745   1.737 486.680 
+# Nils' machine, bobyqa, 2e7:
+# user  system elapsed 
+# 2.510   1.278 153.220
 
-m2z_av <- model.avg(m2z_set1, delta<4, fit=T, trace=T)
-save(m2z_av, file='m2z_av.Rdata')
+# save(m2z_set1, file='m2z_set1.Rdata')
+load('m2z_set1.Rdata')
+subset(m2z_set1, delta<4)
+
+# m2z_av <- model.avg(m2z_set1, delta<4, fit=T, trace=T)
+# save(m2z_av, file='m2z_av.Rdata')
 load('m2z_av.Rdata')
 #vcov(m2z_av)
 summary(m2z_av)
@@ -335,22 +391,142 @@ summary(m2z_av)$avg.model
 
 linkinv <- m2z@resp$family$linkinv
 
-p1 <- c(1,0,0,0,0,   # fSECTION 1
-        0,           # z.DAYNO
-        0,           # z.EDGED
-        0,           # z.TTMIDN,
-        0,           # I(z.TTMIDN^2)
-        0,           # z.WINDS
-        0,           # z.pTREE
-        0,           # SINGLE TURB = -0.5639652
-        0,           # TURB*section 2
-        0,           # TURB*section 3
-        0,           # TURB*section 4
-        0,           # TURB*section 5
-        0            # z.MINTEMP
-        )
+# Standardised values for single and multiple turb
+c.turb <- unique(m2z@frame$c.TURB)[order(unique(m2z@frame$c.TURB))]
 
-linkinv(p1 %*% summary(m2z_av)$avg.model[,1])
+### TEST PREDICTIONS WITH PREDICT() AND MANUALLY USING FULL MODEL:
+# Automatic prediction, full model, single turbine:
+predict(m2z, type='response', re.form=NA, newdata=data.frame(
+  fSECTION=factor(1:5),
+  c.TURB=rep(c.turb[1],5),
+  z.MINTEMP=rep(0,5),
+  z.DAYNO=rep(0,5),
+  z.TTMIDN=rep(0,5),
+  z.WINDS=rep(0,5),
+  z.EDGED=rep(0,5),
+  z.pTREE=rep(0,5)
+))
+# Automatic prediction, full model, multiple turbine:
+predict(m2z, type='response', re.form=NA, newdata=data.frame(
+  fSECTION=factor(1:5),
+  c.TURB=rep(c.turb[2],5),
+  z.MINTEMP=rep(0,5),
+  z.DAYNO=rep(0,5),
+  z.TTMIDN=rep(0,5),
+  z.WINDS=rep(0,5),
+  z.EDGED=rep(0,5),
+  z.pTREE=rep(0,5)
+))
+
+# Manual prediction, full model, single turbine:
+p_full_single <- cbind(
+  rep(1,5),           # Intercept
+  c(0,1,0,0,0),       # fSECTION2
+  c(0,0,1,0,0),       # fSECTION3
+  c(0,0,0,1,0),       # fSECTION4
+  c(0,0,0,0,1),       # fSECTION5
+  rep(c.turb[1],5),   # c.TURB [SINGLE]
+  rep(0, 5),          # z.MINTEMP 
+  rep(0, 5),          # z.DAYNO
+  rep(0, 5),          # z.TTMIDN
+  rep(0, 5),          # z.TTMIDN^2
+  rep(0, 5),          # z.WINDS
+  rep(0, 5),          # z.EDGED
+  rep(0, 5),          # z.pTREE
+  cbind(
+    c(0,1,0,0,0),       # fSECTION2*c.TURB
+    c(0,0,1,0,0),       # fSECTION3*c.TURB
+    c(0,0,0,1,0),       # fSECTION4*c.TURB
+    c(0,0,0,0,1)        # fSECTION5*c.TURB
+  )*c.turb[1]
+)
+linkinv(p_full_single %*% fixef(m2z))
+
+p_full_mult <- cbind(
+  rep(1,5),           # Intercept
+  c(0,1,0,0,0),       # fSECTION2
+  c(0,0,1,0,0),       # fSECTION3
+  c(0,0,0,1,0),       # fSECTION4
+  c(0,0,0,0,1),       # fSECTION5
+  rep(c.turb[2],5),   # c.TURB [SINGLE]
+  rep(0, 5),          # z.MINTEMP 
+  rep(0, 5),          # z.DAYNO
+  rep(0, 5),          # z.TTMIDN
+  rep(0, 5),          # z.TTMIDN^2
+  rep(0, 5),          # z.WINDS
+  rep(0, 5),          # z.EDGED
+  rep(0, 5),          # z.pTREE
+  cbind(
+    c(0,1,0,0,0),       # fSECTION2*c.TURB
+    c(0,0,1,0,0),       # fSECTION3*c.TURB
+    c(0,0,0,1,0),       # fSECTION4*c.TURB
+    c(0,0,0,0,1)        # fSECTION5*c.TURB
+  )*c.turb[2]
+)
+linkinv(p_full_mult %*% fixef(m2z))
+
+
+p_single <- cbind(
+  rep(1,5),           # Intercept
+  c(0,1,0,0,0),       # fSECTION2
+  c(0,0,1,0,0),       # fSECTION3
+  c(0,0,0,1,0),       # fSECTION4
+  c(0,0,0,0,1),       # fSECTION5
+  rep(0,5),           # z.DAYNO
+  rep(0,5),           # z.EDGED
+  rep(0,5),           # z.TTMIDN
+  rep(0,5),           # z.TTMIDN^2
+  rep(0,5),           # z.WINDS
+  rep(0,5),           # z.pTREE
+  rep(c.turb[1],5),   # c.TURB
+  rep(0,5),           # z.MINTEMP
+  cbind(
+    c(0,1,0,0,0),       # fSECTION2*c.TURB
+    c(0,0,1,0,0),       # fSECTION3*c.TURB
+    c(0,0,0,1,0),       # fSECTION4*c.TURB
+    c(0,0,0,0,1)        # fSECTION5*c.TURB
+    )*c.turb[1]
+  )
+# Point predictions, SINGLE turbine:
+pts1_single <- linkinv(p_single %*% summary(m2z_av)$avg.model[,1])
+
+predict(m2z_av, type='link', backtransform=T, re.form=NA, newdata=data.frame(
+  fSECTION=factor(1:5),
+  z.DAYNO=0,
+  z.EDGED=0,
+  z.TTMIDN=0,
+  z.WINDS=0,
+  z.pTREE=0,
+  c.TURB=c.turb[1],
+  z.MINTEMP=0,
+  AREA_ha=1
+  ))
+
+p_multp <- cbind(
+  rep(1,5),           # Intercept
+  c(0,1,0,0,0),       # fSECTION2
+  c(0,0,1,0,0),       # fSECTION3
+  c(0,0,0,1,0),       # fSECTION4
+  c(0,0,0,0,1),       # fSECTION5
+  rep(0,5),           # z.DAYNO
+  rep(0,5),           # z.EDGED
+  rep(0,5),           # z.TTMIDN
+  rep(0,5),           # z.TTMIDN^2
+  rep(0,5),           # z.WINDS
+  rep(0,5),           # z.pTREE
+  rep(c.turb[2],5),   # c.TURB
+  rep(0,5),           # z.MINTEMP
+  cbind(
+    c(0,1,0,0,0),       # fSECTION2*c.TURB
+    c(0,0,1,0,0),       # fSECTION3*c.TURB
+    c(0,0,0,1,0),       # fSECTION4*c.TURB
+    c(0,0,0,0,1)        # fSECTION5*c.TURB
+  )*c.turb[2]
+)
+# Point predictions, MULTIPLE turbine:
+pts1_mult <- linkinv(p_multp %*% summary(m2z_av)$avg.model[,1])
+
+
 
 p_single <- cbind(rep(1,5),          # Intercept (fSECTION 1)
                   c(0,1,0,0,0),      # fSECTION 2
@@ -363,13 +539,14 @@ p_single <- cbind(rep(1,5),          # Intercept (fSECTION 1)
                   rep(0,5),          # I(z.TTMIDN^2),
                   rep(0,5),          # z.WINDS
                   rep(0,5),          # z.pTREE
-                  rep(-0.5639652,5), # SINGLE TURB = -0.5639652
+                  rep(c.turb[1],5),  # SINGLE TURB = -0.5639652
+                  rep(0,5),           # z.MINTEMP                  
                   cbind(c(0,1,0,0,0),# Interaction, fsection 2
                         c(0,0,1,0,0),# Interaction, fsection 3
                         c(0,0,0,1,0),# Interaction, fsection 4
-                        c(0,0,0,0,1))*-0.5639652, # fsection 5 - SINGLE TURB
-                  rep(0,5)           # z.MINTEMP
+                        c(0,0,0,0,1))*c.turb[1] # fsection 5 - SINGLE TURB
                   )
+
 p_multp <- cbind(rep(1,5),          # Intercept (fSECTION 1)
                   c(0,1,0,0,0),      # fSECTION 2
                   c(0,0,1,0,0),      # fSECTION 3
@@ -381,12 +558,12 @@ p_multp <- cbind(rep(1,5),          # Intercept (fSECTION 1)
                   rep(0,5),          # I(z.TTMIDN^2),
                   rep(0,5),          # z.WINDS
                   rep(0,5),          # z.pTREE
-                  rep(0.4360348,5), # MULT TURB = 0.4360348
+                  rep(0,5),          # z.MINTEMP
+                  rep(c.turb[2],5),  # MULT TURB
                   cbind(c(0,1,0,0,0),# Interaction, fsection 2
                         c(0,0,1,0,0),# Interaction, fsection 3
                         c(0,0,0,1,0),# Interaction, fsection 4
-                        c(0,0,0,0,1))*0.4360348, # fsection 5 - MULT TURB
-                  rep(0,5)           # z.MINTEMP
+                        c(0,0,0,0,1))*c.turb[2] # fsection 5 - MULT TURB
 )
 
 # Point predictions, SINGLE turbine:
