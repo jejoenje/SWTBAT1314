@@ -479,6 +479,8 @@ linkinv(p_full_mult %*% fixef(m2z))
 ### Predictions with AVERAGED model.
 ### Note that prediction frame (for manual predictions) will be different.
 
+
+### Model averaged = avg.model
 ### Try automatically:
 ### Single turbine:
 predict(m2z_av, type='response', REform=NA, newdata=data.frame(
@@ -554,6 +556,221 @@ p_multp <- cbind(
 # Point predictions, MULTIPLE turbine:
 pts1_mult <- linkinv(p_multp %*% summary(m2z_av)$avg.model[,1])
 
+### So avg.model effects are not was is used by predict().
+### Use averaged parameters with full shrinkage?
+linkinv(p_single %*% summary(m2z_av)$coef.shrinkage)
+# Compare to predict():
+predict(m2z_av, type='response', REform=NA, newdata=data.frame(
+  fSECTION=factor(1:5),
+  c.TURB=rep(c.turb[1],5),
+  z.MINTEMP=rep(0,5),
+  z.DAYNO=rep(0,5),
+  z.TTMIDN=rep(0,5),
+  z.WINDS=rep(0,5),
+  z.EDGED=rep(0,5),
+  z.pTREE=rep(0,5),
+  AREA_ha=rep(1,5)
+))
+linkinv(p_multp %*% summary(m2z_av)$coef.shrinkage)
+predict(m2z_av, type='response', REform=NA, newdata=data.frame(
+  fSECTION=factor(1:5),
+  c.TURB=rep(c.turb[2],5),
+  z.MINTEMP=rep(0,5),
+  z.DAYNO=rep(0,5),
+  z.TTMIDN=rep(0,5),
+  z.WINDS=rep(0,5),
+  z.EDGED=rep(0,5),
+  z.pTREE=rep(0,5),
+  AREA_ha=rep(1,5)
+))
+### Nope... "shrunk" parameters seem to be further from the predict() result...
+
+
+### Plot predictions in clustered bars:
+
+preds_single <- cbind(linkinv(p_full_single %*% fixef(m2z)), 
+                      linkinv(p_single %*% summary(m2z_av)$avg.model[,1]),
+                      linkinv(p_single %*% summary(m2z_av)$coef.shrinkage),
+                      as.vector(predict(m2z_av, type='response', REform=NA, newdata=data.frame(
+                            fSECTION=factor(1:5),
+                            c.TURB=rep(c.turb[1],5),
+                            z.MINTEMP=rep(0,5),
+                            z.DAYNO=rep(0,5),
+                            z.TTMIDN=rep(0,5),
+                            z.WINDS=rep(0,5),
+                            z.EDGED=rep(0,5),
+                            z.pTREE=rep(0,5),
+                            AREA_ha=rep(1,5)
+                        )))
+                      )
+preds_mult <- cbind(linkinv(p_full_mult %*% fixef(m2z)), 
+                    linkinv(p_multp %*% summary(m2z_av)$avg.model[,1]),
+                    linkinv(p_multp %*% summary(m2z_av)$coef.shrinkage),
+                    as.vector(predict(m2z_av, type='response', REform=NA, newdata=data.frame(
+                      fSECTION=factor(1:5),
+                      c.TURB=rep(c.turb[2],5),
+                      z.MINTEMP=rep(0,5),
+                      z.DAYNO=rep(0,5),
+                      z.TTMIDN=rep(0,5),
+                      z.WINDS=rep(0,5),
+                      z.EDGED=rep(0,5),
+                      z.pTREE=rep(0,5),
+                      AREA_ha=rep(1,5)
+                    )))
+                    )
+
+# Prediction intervals cf. Bolker:
+
+p_full_single_se <- sqrt(diag(p_full_single %*% vcov(m2z) %*% t(p_full_single)))
+p_full_mult_se <- sqrt(diag(p_full_mult %*% vcov(m2z) %*% t(p_full_mult)))
+p_single_se <- sqrt(diag(p_single %*% vcov(m2z_av) %*% t(p_single)))
+p_mult_se <- sqrt(diag(p_multp %*% vcov(m2z_av) %*% t(p_multp)))
+
+preds_single_lwr <- cbind(linkinv(p_full_single %*% fixef(m2z) - 1.96*p_full_single_se),
+                          linkinv(p_single %*% summary(m2z_av)$avg.model[,1]- 1.96*p_single_se),
+                          linkinv(p_single %*% summary(m2z_av)$coef.shrinkage- 1.96*p_single_se),
+                          as.vector(predict(m2z_av, type='response', REform=NA, newdata=data.frame(
+                            fSECTION=factor(1:5),
+                            c.TURB=rep(c.turb[1],5),
+                            z.MINTEMP=rep(0,5),
+                            z.DAYNO=rep(0,5),
+                            z.TTMIDN=rep(0,5),
+                            z.WINDS=rep(0,5),
+                            z.EDGED=rep(0,5),
+                            z.pTREE=rep(0,5),
+                            AREA_ha=rep(1,5)
+                          )))-predict(m2z_av, type='link', backtransform=T, REform=NA, newdata=data.frame(
+                               fSECTION=factor(1:5),
+                               c.TURB=rep(c.turb[1],5),
+                               z.MINTEMP=rep(0,5),
+                               z.DAYNO=rep(0,5),
+                               z.TTMIDN=rep(0,5),
+                               z.WINDS=rep(0,5),
+                               z.EDGED=rep(0,5),
+                               z.pTREE=rep(0,5),
+                               AREA_ha=rep(1,5)
+                            ), se.fit=T)$se.fit*1.96)
+preds_single_upr <- cbind(linkinv(p_full_single %*% fixef(m2z) + 1.96*p_full_single_se),
+                          linkinv(p_single %*% summary(m2z_av)$avg.model[,1]+ 1.96*p_single_se),
+                          linkinv(p_single %*% summary(m2z_av)$coef.shrinkage+ 1.96*p_single_se),
+                          as.vector(predict(m2z_av, type='response', REform=NA, newdata=data.frame(
+                            fSECTION=factor(1:5),
+                            c.TURB=rep(c.turb[1],5),
+                            z.MINTEMP=rep(0,5),
+                            z.DAYNO=rep(0,5),
+                            z.TTMIDN=rep(0,5),
+                            z.WINDS=rep(0,5),
+                            z.EDGED=rep(0,5),
+                            z.pTREE=rep(0,5),
+                            AREA_ha=rep(1,5)
+                          )))+predict(m2z_av, type='link', backtransform=T, REform=NA, newdata=data.frame(
+                            fSECTION=factor(1:5),
+                            c.TURB=rep(c.turb[1],5),
+                            z.MINTEMP=rep(0,5),
+                            z.DAYNO=rep(0,5),
+                            z.TTMIDN=rep(0,5),
+                            z.WINDS=rep(0,5),
+                            z.EDGED=rep(0,5),
+                            z.pTREE=rep(0,5),
+                            AREA_ha=rep(1,5)
+                          ), se.fit=T)$se.fit*1.96)
+
+preds_mult_lwr <- cbind(linkinv(p_full_mult %*% fixef(m2z) - 1.96*p_full_mult_se),
+                          linkinv(p_multp %*% summary(m2z_av)$avg.model[,1]- 1.96*p_mult_se),
+                          linkinv(p_multp %*% summary(m2z_av)$coef.shrinkage- 1.96*p_mult_se),
+                          as.vector(predict(m2z_av, type='response', REform=NA, newdata=data.frame(
+                            fSECTION=factor(1:5),
+                            c.TURB=rep(c.turb[2],5),
+                            z.MINTEMP=rep(0,5),
+                            z.DAYNO=rep(0,5),
+                            z.TTMIDN=rep(0,5),
+                            z.WINDS=rep(0,5),
+                            z.EDGED=rep(0,5),
+                            z.pTREE=rep(0,5),
+                            AREA_ha=rep(1,5)
+                          )))-predict(m2z_av, type='link', backtransform=T, REform=NA, newdata=data.frame(
+                            fSECTION=factor(1:5),
+                            c.TURB=rep(c.turb[2],5),
+                            z.MINTEMP=rep(0,5),
+                            z.DAYNO=rep(0,5),
+                            z.TTMIDN=rep(0,5),
+                            z.WINDS=rep(0,5),
+                            z.EDGED=rep(0,5),
+                            z.pTREE=rep(0,5),
+                            AREA_ha=rep(1,5)
+                          ), se.fit=T)$se.fit*1.96)
+preds_mult_upr <- cbind(linkinv(p_full_mult %*% fixef(m2z) + 1.96*p_full_mult_se),
+                        linkinv(p_multp %*% summary(m2z_av)$avg.model[,1]+ 1.96*p_mult_se),
+                        linkinv(p_multp %*% summary(m2z_av)$coef.shrinkage+ 1.96*p_mult_se),
+                        as.vector(predict(m2z_av, type='response', REform=NA, newdata=data.frame(
+                          fSECTION=factor(1:5),
+                          c.TURB=rep(c.turb[2],5),
+                          z.MINTEMP=rep(0,5),
+                          z.DAYNO=rep(0,5),
+                          z.TTMIDN=rep(0,5),
+                          z.WINDS=rep(0,5),
+                          z.EDGED=rep(0,5),
+                          z.pTREE=rep(0,5),
+                          AREA_ha=rep(1,5)
+                        )))+predict(m2z_av, type='link', backtransform=T, REform=NA, newdata=data.frame(
+                          fSECTION=factor(1:5),
+                          c.TURB=rep(c.turb[2],5),
+                          z.MINTEMP=rep(0,5),
+                          z.DAYNO=rep(0,5),
+                          z.TTMIDN=rep(0,5),
+                          z.WINDS=rep(0,5),
+                          z.EDGED=rep(0,5),
+                          z.pTREE=rep(0,5),
+                          AREA_ha=rep(1,5)
+                        ), se.fit=T)$se.fit*1.96)
+
+### OBSERVED proportions:
+# Calculate observered mean proportions 0/1 for single and multiple turbines:
+bats_nona_single <- bats_nona[bats_nona$TURB=='single',]
+bats_nona_multp <- bats_nona[bats_nona$TURB=='multiple',]
+bats_nona_single <- droplevels(bats_nona_single); bats_nona_multp <- droplevels(bats_nona_multp)
+
+obs_single <- tapply(bats_nona_single$OCC_PIPS, bats_nona_single$fSECTION, sum)/
+  tapply(bats_nona_single$OCC_PIPS, bats_nona_single$fSECTION, length)
+
+obs_multp <- tapply(bats_nona_multp$OCC_PIPS, bats_nona_multp$fSECTION, sum)/
+  tapply(bats_nona_multp$OCC_PIPS, bats_nona_multp$fSECTION, length)
+
+par(mfrow=c(2,1))
+bplot_single <- barplot(preds_single, beside=T, ylim=c(0, max(c(preds_single_upr, preds_mult_upr))), 
+                        col=rep('lightgrey',5),
+                        main='Single turbine', 
+                        names.arg=c('Full','Averaged (NA)', 'Averaged (Shrunk)', 'Averaged (predict())'))
+mtext(text=1:5, side=1, line=0, at=bplot_single)
+for(i in 1:nrow(preds_single_lwr)) {
+  for(j in 1:ncol(preds_single_lwr)) {
+    arrows(bplot_single[i,j],preds_single_lwr[i,j],bplot_single[i,j],preds_single_upr[i,j],
+           code=3, length=0.1, angle=90)
+  } 
+}
+points(as.vector(bplot_single),rep(obs_single,4),pch=16)
+
+bplot_mult <- barplot(preds_mult, beside=T, ylim=c(0, max(c(preds_single_upr, preds_mult_upr))), 
+                        col=rep('lightgrey',5),
+                        main='Multiple turbines', 
+                        names.arg=c('Full','Averaged (NA)', 'Averaged (Shrunk)', 'Averaged (predict())'))
+mtext(text=1:5, side=1, line=0, at=bplot_mult)
+for(i in 1:nrow(preds_mult_lwr)) {
+  for(j in 1:ncol(preds_mult_lwr)) {
+    arrows(bplot_mult[i,j],preds_mult_lwr[i,j],bplot_mult[i,j],preds_mult_upr[i,j],
+           code=3, length=0.1, angle=90)
+  } 
+}
+points(as.vector(bplot_mult),rep(obs_multp,4),pch=16)
+
+
+av_bars <- barplot(matrix(av_wind$fit,2,2), beside=T, col=c(shd1, shd2), 
+                   ylim=c(0, max(hi_wind$upr)), names.arg=c('Control','Turbine'), 
+                   main='Average wind speed (5.9 m/s)',
+                   ylab='Predicted number of S. Pip passes per night')
+
+legend(1, 500, legend=c('Before','After'), bty='n', 
+       xjust=0, col=c(shd1, shd2), fill=c(shd1, shd2), x.intersp=0.25, text.width=0.25)
 
 
 
