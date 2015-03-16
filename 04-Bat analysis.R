@@ -113,7 +113,7 @@ length(modset_habz1)
 
 # Repeat above on all clusters:
 clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
-clust <- try(makeCluster(getOption("cl.cores", 24), type = clusterType))
+clust <- try(makeCluster(getOption("cl.cores", 4), type = clusterType))
 clusterExport(clust, "bats_nona")
 clusterExport(clust, "glmer")
 clusterExport(clust, "fixef")
@@ -133,7 +133,7 @@ system.time({
                            !(z.pRDTRK && z.pROADS) &&
                            !(z.pRDTRK && z.EDGED) &&
                            !(z.D_LIN && z.EDGED)
-                         , trace=T)
+                         , trace=2)
 })
 # user  system elapsed 
 # 1.581   0.673  43.787 Nils
@@ -141,6 +141,8 @@ system.time({
 # 1.607   0.674  43.854 Nils
 # user  system elapsed 
 # 1.776   0.850  29.847 Tim
+# user  system elapsed 
+# 1.78    5.26   77.37 Dyers
 
 # save(modset_habz1, file='modset_habz1.Rdata')
 load('modset_habz1.Rdata')
@@ -148,6 +150,10 @@ subset(modset_habz1, delta<4)
 subset(modset_habz1, delta<10)
 
 # So on the basis of AIC selection, let's consider D_BUI, D_WAT, EDGED and pTREE as our hab variables.
+
+# Correlation between these four variables:
+cor(subset(bats_nona, select=c('D_BUI','D_WAT','EDGED','pTREE')))
+corrplot(cor(subset(bats_nona, select=c('D_BUI','D_WAT','EDGED','pTREE'))))
 
 # # Second AIC based selection, exclude edge density:
 # mod_hab2 <- glmer(OCC_PIPS ~ pBUILD + pTREE + pRDTRK + pROADS + pROADS + pRGRAS + 
@@ -280,15 +286,16 @@ length(m1z_set1)
 
 # Set up cluster:
 clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
-clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
+clust <- try(makeCluster(getOption("cl.cores", 4), type = clusterType))
 clusterExport(clust, "bats_nona")
 clusterExport(clust, "glmer")
 clusterExport(clust, "fixef")
 clusterExport(clust, "glmerControl")
+clusterExport(clust, "forceSymmetric")
 
 system.time({
   m1z_set1 <- pdredge(m1z, cluster=clust, 
-                      subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=T)  
+                      subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=2)  
 })
 # Nils' machine, default optimiser, default maxfun:
 # user   system  elapsed 
@@ -299,6 +306,8 @@ system.time({
 # Tim's machine, bobyqa, maxfun 2e7:
 # user  system elapsed 
 # 9.092   6.459 659.826 
+# user  system elapsed 
+# 22.93  117.89 1930.87 Dyers 16/3/2015
 
 # save(m1z_set1, file='m1z_set1.Rdata')
 # stopCluster(clust)
