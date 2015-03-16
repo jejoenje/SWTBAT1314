@@ -78,17 +78,17 @@ mod_hab1 <- glmer(OCC_PIPS ~ pBUILD + pTREE + pRDTRK + pROADS + pROADS + pRGRAS 
 mod_habz1 <- standardize(mod_hab1)
 
 modset_habz1 <- dredge(mod_habz1, 
-                   subset=
-                     !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-                     !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-                     !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
-                     !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
-                     !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
-                     !(z.pBUILD && z.D_BUI) &&
-                     !(z.pTREE && z.D_TRE) &&
-                     !(z.pRDTRK && z.EDGED) &&
-                     !(z.D_LIN && z.EDGED)
-                   , evaluate=F)
+                       subset=
+                         !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+                         !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+                         !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
+                         !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
+                         !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
+                         !(z.pBUILD && z.D_BUI) &&
+                         !(z.pTREE && z.D_TRE) &&
+                         !(z.pRDTRK && z.EDGED) &&
+                         !(z.D_LIN && z.EDGED)
+                       , evaluate=F)
 length(modset_habz1)
 
 # system.time({
@@ -122,18 +122,18 @@ clusterExport(clust, "forceSymmetric")
 
 system.time({
   modset_habz1 <- pdredge(mod_habz1, cluster=clust,
-                         subset=
-                           !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-                           !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-                           !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
-                           !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
-                           !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
-                           !(z.pBUILD && z.D_BUI) &&
-                           !(z.pTREE && z.D_TRE) &&
-                           !(z.pRDTRK && z.pROADS) &&
-                           !(z.pRDTRK && z.EDGED) &&
-                           !(z.D_LIN && z.EDGED)
-                         , trace=2)
+                          subset=
+                            !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+                            !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
+                            !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
+                            !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
+                            !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
+                            !(z.pBUILD && z.D_BUI) &&
+                            !(z.pTREE && z.D_TRE) &&
+                            !(z.pRDTRK && z.pROADS) &&
+                            !(z.pRDTRK && z.EDGED) &&
+                            !(z.D_LIN && z.EDGED)
+                          , trace=2)
 })
 # user  system elapsed 
 # 1.581   0.673  43.787 Nils
@@ -142,7 +142,9 @@ system.time({
 # user  system elapsed 
 # 1.776   0.850  29.847 Tim
 # user  system elapsed 
-# 1.78    5.26   77.37 Dyers
+# 1.78    5.26   77.37 Dyers 16/3/2015
+# user  system elapsed 
+# 1.457   0.707  36.170 Tim's 16/3/2015
 
 # save(modset_habz1, file='modset_habz1.Rdata')
 load('modset_habz1.Rdata')
@@ -259,24 +261,18 @@ corrplot(cor(subset(bats_nona, select=c('D_BUI','D_WAT','EDGED','pTREE'))))
 
 # First fit unstandardised model:
 m1 <- glmer(OCC_PIPS  ~ fSECTION*TURB + 
-                        MINTEMP + 
-                        DAYNO +
-                        TTMIDN +
-                        I(TTMIDN^2) + 
-                        WINDS +
-                        D_BUI + 
-                        D_WAT +
-                        EDGED +
-                        pTREE + 
-                        (1|SITE/TRSCT), offset=log(AREA_ha), 
+              MINTEMP + 
+              DAYNO +
+              TTMIDN +
+              I(TTMIDN^2) + 
+              WINDS +
+              D_BUI + 
+              D_WAT +
+              EDGED +
+              pTREE + 
+              (1|SITE/TRSCT), offset=log(AREA_ha), 
             data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail', 
             control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
-# Nils' machine, default maxfun, default optimizer:
-# user  system elapsed 
-# 25.436   0.058  25.488
-# Nils' machine, maxfun 2e7, bobyqa:
-# user  system elapsed 
-# 1.148   0.002   1.149 
 
 # Standardise predictors:
 m1z <- standardize(m1)
@@ -308,6 +304,8 @@ system.time({
 # 9.092   6.459 659.826 
 # user  system elapsed 
 # 22.93  117.89 1930.87 Dyers 16/3/2015
+# user  system elapsed 
+# 7.428   4.557 853.983 Tim's 16/3/2015
 
 # save(m1z_set1, file='m1z_set1.Rdata')
 # stopCluster(clust)
@@ -335,23 +333,17 @@ summary(m1z_av)
 #   })
 system.time({
   m2 <- glmer(OCC_PIPS  ~ fSECTION*TURB + 
-              MINTEMP + 
-              DAYNO +
-              TTMIDN +
-              I(TTMIDN^2) + 
-              WINDS +
-              EDGED +
-              pTREE + 
-              (1|SITE/TRSCT), offset=log(AREA_ha), 
-            data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail',
-            control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7))
-            ) })
-# Nils' machine, standard optimiser, standard maxfun:
-# user  system elapsed 
-# 9.773   0.026   9.796 
-# Nils' machine, bobyqa, maxfun 2e7:
-# user  system elapsed 
-# 0.967   0.003   0.96
+                MINTEMP + 
+                DAYNO +
+                TTMIDN +
+                I(TTMIDN^2) + 
+                WINDS +
+                EDGED +
+                pTREE + 
+                (1|SITE/TRSCT), offset=log(AREA_ha), 
+              data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail',
+              control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7))
+  ) })
 
 # Standardise predictors:
 # m2z_def <- standardize(m2_def)
@@ -365,19 +357,16 @@ length(m2z_set1)
 
 # Set up cluster:
 clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
-clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
+clust <- try(makeCluster(getOption("cl.cores", 4), type = clusterType))
 clusterExport(clust, "bats_nona")
 clusterExport(clust, "glmer")
 clusterExport(clust, "fixef")
 clusterExport(clust, "glmerControl")
+clusterExport(clust, "forceSymmetric")
 
-# system.time({
-#   m2z_def_set1 <- pdredge(m2z_def, cluster=clust, 
-#                       subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=T)  
-# })
 system.time({
   m2z_set1 <- pdredge(m2z, cluster=clust, 
-                      subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=T)  
+                      subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), trace=2)  
 })
 # Nils' machine, def optimiser, def maxfun:
 # user  system elapsed 
@@ -388,6 +377,8 @@ system.time({
 # Tim's machine, bobyqa, 2e7:
 # user  system elapsed 
 # 2.133   1.449 140.827
+# user  system elapsed 
+# 1.852   1.067 183.874 Dyers 16/3/2015
 
 # save(m2z_set1, file='m2z_set1.Rdata')
 load('m2z_set1.Rdata')
@@ -413,7 +404,7 @@ c.turb <- unique(m2z@frame$c.TURB)[order(unique(m2z@frame$c.TURB))]
 
 ### TEST PREDICTIONS WITH PREDICT() AND MANUALLY USING FULL MODEL:
 # Automatic prediction, full model, single turbine:
-predict(m2z, type='response', REform=NA, newdata=data.frame(
+predict(m2z, type='response', re.form=NA, newdata=data.frame(
   fSECTION=factor(1:5),
   c.TURB=rep(c.turb[1],5),
   z.MINTEMP=rep(0,5),
@@ -425,7 +416,7 @@ predict(m2z, type='response', REform=NA, newdata=data.frame(
   AREA_ha=rep(1,5)
 ))
 # Automatic prediction, full model, multiple turbine:
-predict(m2z, type='response', REform=NA, newdata=data.frame(
+predict(m2z, type='response', re.form=NA, newdata=data.frame(
   fSECTION=factor(1:5),
   c.TURB=rep(c.turb[2],5),
   z.MINTEMP=rep(0,5),
@@ -492,7 +483,7 @@ linkinv(p_full_mult %*% fixef(m2z))
 ### Model averaged = avg.model
 ### Try automatically:
 ### Single turbine:
-predict(m2z_av, type='response', REform=NA, newdata=data.frame(
+predict(m2z_av, type='response', re.form=NA, newdata=data.frame(
   fSECTION=factor(1:5),
   c.TURB=rep(c.turb[1],5),
   z.MINTEMP=rep(0,5),
@@ -504,7 +495,7 @@ predict(m2z_av, type='response', REform=NA, newdata=data.frame(
   AREA_ha=rep(1,5)
 ))
 ### Multiple turbines:
-predict(m2z_av, type='response', REform=NA, newdata=data.frame(
+predict(m2z_av, type='response', re.form=NA, newdata=data.frame(
   fSECTION=factor(1:5),
   c.TURB=rep(c.turb[2],5),
   z.MINTEMP=rep(0,5),
@@ -536,8 +527,8 @@ p_single <- cbind(
     c(0,0,1,0,0),       # fSECTION3*c.TURB
     c(0,0,0,1,0),       # fSECTION4*c.TURB
     c(0,0,0,0,1)        # fSECTION5*c.TURB
-    )*c.turb[1]
-  )
+  )*c.turb[1]
+)
 # Point predictions, SINGLE turbine:
 pts1_single <- linkinv(p_single %*% summary(m2z_av)$avg.model[,1])
 
@@ -569,7 +560,7 @@ pts1_mult <- linkinv(p_multp %*% summary(m2z_av)$avg.model[,1])
 ### Use averaged parameters with full shrinkage?
 linkinv(p_single %*% summary(m2z_av)$coef.shrinkage)
 # Compare to predict():
-predict(m2z_av, type='response', REform=NA, newdata=data.frame(
+predict(m2z_av, type='response', re.form=NA, newdata=data.frame(
   fSECTION=factor(1:5),
   c.TURB=rep(c.turb[1],5),
   z.MINTEMP=rep(0,5),
@@ -581,7 +572,7 @@ predict(m2z_av, type='response', REform=NA, newdata=data.frame(
   AREA_ha=rep(1,5)
 ))
 linkinv(p_multp %*% summary(m2z_av)$coef.shrinkage)
-predict(m2z_av, type='response', REform=NA, newdata=data.frame(
+predict(m2z_av, type='response', re.form=NA, newdata=data.frame(
   fSECTION=factor(1:5),
   c.TURB=rep(c.turb[2],5),
   z.MINTEMP=rep(0,5),
@@ -600,22 +591,22 @@ predict(m2z_av, type='response', REform=NA, newdata=data.frame(
 preds_single <- cbind(linkinv(p_full_single %*% fixef(m2z)), 
                       linkinv(p_single %*% summary(m2z_av)$avg.model[,1]),
                       linkinv(p_single %*% summary(m2z_av)$coef.shrinkage),
-                      as.vector(predict(m2z_av, type='response', REform=NA, newdata=data.frame(
-                            fSECTION=factor(1:5),
-                            c.TURB=rep(c.turb[1],5),
-                            z.MINTEMP=rep(0,5),
-                            z.DAYNO=rep(0,5),
-                            z.TTMIDN=rep(0,5),
-                            z.WINDS=rep(0,5),
-                            z.EDGED=rep(0,5),
-                            z.pTREE=rep(0,5),
-                            AREA_ha=rep(1,5)
-                        )))
-                      )
+                      as.vector(predict(m2z_av, type='response', re.form=NA, newdata=data.frame(
+                        fSECTION=factor(1:5),
+                        c.TURB=rep(c.turb[1],5),
+                        z.MINTEMP=rep(0,5),
+                        z.DAYNO=rep(0,5),
+                        z.TTMIDN=rep(0,5),
+                        z.WINDS=rep(0,5),
+                        z.EDGED=rep(0,5),
+                        z.pTREE=rep(0,5),
+                        AREA_ha=rep(1,5)
+                      )))
+)
 preds_mult <- cbind(linkinv(p_full_mult %*% fixef(m2z)), 
                     linkinv(p_multp %*% summary(m2z_av)$avg.model[,1]),
                     linkinv(p_multp %*% summary(m2z_av)$coef.shrinkage),
-                    as.vector(predict(m2z_av, type='response', REform=NA, newdata=data.frame(
+                    as.vector(predict(m2z_av, type='response', re.form=NA, newdata=data.frame(
                       fSECTION=factor(1:5),
                       c.TURB=rep(c.turb[2],5),
                       z.MINTEMP=rep(0,5),
@@ -626,7 +617,7 @@ preds_mult <- cbind(linkinv(p_full_mult %*% fixef(m2z)),
                       z.pTREE=rep(0,5),
                       AREA_ha=rep(1,5)
                     )))
-                    )
+)
 
 # Prediction intervals cf. Bolker:
 
@@ -638,7 +629,7 @@ p_mult_se <- sqrt(diag(p_multp %*% vcov(m2z_av) %*% t(p_multp)))
 preds_single_lwr <- cbind(linkinv(p_full_single %*% fixef(m2z) - 1.96*p_full_single_se),
                           linkinv(p_single %*% summary(m2z_av)$avg.model[,1]- 1.96*p_single_se),
                           linkinv(p_single %*% summary(m2z_av)$coef.shrinkage- 1.96*p_single_se),
-                          as.vector(predict(m2z_av, type='response', REform=NA, newdata=data.frame(
+                          as.vector(predict(m2z_av, type='response', re.form=NA, newdata=data.frame(
                             fSECTION=factor(1:5),
                             c.TURB=rep(c.turb[1],5),
                             z.MINTEMP=rep(0,5),
@@ -648,17 +639,17 @@ preds_single_lwr <- cbind(linkinv(p_full_single %*% fixef(m2z) - 1.96*p_full_sin
                             z.EDGED=rep(0,5),
                             z.pTREE=rep(0,5),
                             AREA_ha=rep(1,5)
-                          )))-predict(m2z_av, type='link', backtransform=T, REform=NA, newdata=data.frame(
-                               fSECTION=factor(1:5),
-                               c.TURB=rep(c.turb[1],5),
-                               z.MINTEMP=rep(0,5),
-                               z.DAYNO=rep(0,5),
-                               z.TTMIDN=rep(0,5),
-                               z.WINDS=rep(0,5),
-                               z.EDGED=rep(0,5),
-                               z.pTREE=rep(0,5),
-                               AREA_ha=rep(1,5)
-                            ), se.fit=T)$se.fit*1.96)
+                          )))-predict(m2z_av, type='link', backtransform=T, re.form=NA, newdata=data.frame(
+                            fSECTION=factor(1:5),
+                            c.TURB=rep(c.turb[1],5),
+                            z.MINTEMP=rep(0,5),
+                            z.DAYNO=rep(0,5),
+                            z.TTMIDN=rep(0,5),
+                            z.WINDS=rep(0,5),
+                            z.EDGED=rep(0,5),
+                            z.pTREE=rep(0,5),
+                            AREA_ha=rep(1,5)
+                          ), se.fit=T)$se.fit*1.96)
 preds_single_upr <- cbind(linkinv(p_full_single %*% fixef(m2z) + 1.96*p_full_single_se),
                           linkinv(p_single %*% summary(m2z_av)$avg.model[,1]+ 1.96*p_single_se),
                           linkinv(p_single %*% summary(m2z_av)$coef.shrinkage+ 1.96*p_single_se),
@@ -685,29 +676,29 @@ preds_single_upr <- cbind(linkinv(p_full_single %*% fixef(m2z) + 1.96*p_full_sin
                           ), se.fit=T)$se.fit*1.96)
 
 preds_mult_lwr <- cbind(linkinv(p_full_mult %*% fixef(m2z) - 1.96*p_full_mult_se),
-                          linkinv(p_multp %*% summary(m2z_av)$avg.model[,1]- 1.96*p_mult_se),
-                          linkinv(p_multp %*% summary(m2z_av)$coef.shrinkage- 1.96*p_mult_se),
-                          as.vector(predict(m2z_av, type='response', REform=NA, newdata=data.frame(
-                            fSECTION=factor(1:5),
-                            c.TURB=rep(c.turb[2],5),
-                            z.MINTEMP=rep(0,5),
-                            z.DAYNO=rep(0,5),
-                            z.TTMIDN=rep(0,5),
-                            z.WINDS=rep(0,5),
-                            z.EDGED=rep(0,5),
-                            z.pTREE=rep(0,5),
-                            AREA_ha=rep(1,5)
-                          )))-predict(m2z_av, type='link', backtransform=T, REform=NA, newdata=data.frame(
-                            fSECTION=factor(1:5),
-                            c.TURB=rep(c.turb[2],5),
-                            z.MINTEMP=rep(0,5),
-                            z.DAYNO=rep(0,5),
-                            z.TTMIDN=rep(0,5),
-                            z.WINDS=rep(0,5),
-                            z.EDGED=rep(0,5),
-                            z.pTREE=rep(0,5),
-                            AREA_ha=rep(1,5)
-                          ), se.fit=T)$se.fit*1.96)
+                        linkinv(p_multp %*% summary(m2z_av)$avg.model[,1]- 1.96*p_mult_se),
+                        linkinv(p_multp %*% summary(m2z_av)$coef.shrinkage- 1.96*p_mult_se),
+                        as.vector(predict(m2z_av, type='response', REform=NA, newdata=data.frame(
+                          fSECTION=factor(1:5),
+                          c.TURB=rep(c.turb[2],5),
+                          z.MINTEMP=rep(0,5),
+                          z.DAYNO=rep(0,5),
+                          z.TTMIDN=rep(0,5),
+                          z.WINDS=rep(0,5),
+                          z.EDGED=rep(0,5),
+                          z.pTREE=rep(0,5),
+                          AREA_ha=rep(1,5)
+                        )))-predict(m2z_av, type='link', backtransform=T, REform=NA, newdata=data.frame(
+                          fSECTION=factor(1:5),
+                          c.TURB=rep(c.turb[2],5),
+                          z.MINTEMP=rep(0,5),
+                          z.DAYNO=rep(0,5),
+                          z.TTMIDN=rep(0,5),
+                          z.WINDS=rep(0,5),
+                          z.EDGED=rep(0,5),
+                          z.pTREE=rep(0,5),
+                          AREA_ha=rep(1,5)
+                        ), se.fit=T)$se.fit*1.96)
 preds_mult_upr <- cbind(linkinv(p_full_mult %*% fixef(m2z) + 1.96*p_full_mult_se),
                         linkinv(p_multp %*% summary(m2z_av)$avg.model[,1]+ 1.96*p_mult_se),
                         linkinv(p_multp %*% summary(m2z_av)$coef.shrinkage+ 1.96*p_mult_se),
@@ -760,9 +751,9 @@ for(i in 1:nrow(preds_single_lwr)) {
 points(as.vector(bplot_single),rep(obs_single,4),pch=16)
 
 bplot_mult <- barplot(preds_mult, beside=T, ylim=c(0, max(c(preds_single_upr, preds_mult_upr))), 
-                        col=rep('lightgrey',5),
-                        main='Multiple turbines', 
-                        names.arg=c('Full','Averaged (NA)', 'Averaged (Shrunk)', 'Averaged (predict())'))
+                      col=rep('lightgrey',5),
+                      main='Multiple turbines', 
+                      names.arg=c('Full','Averaged (NA)', 'Averaged (Shrunk)', 'Averaged (predict())'))
 mtext(text=1:5, side=1, line=0, at=bplot_mult)
 for(i in 1:nrow(preds_mult_lwr)) {
   for(j in 1:ncol(preds_mult_lwr)) {
@@ -818,8 +809,8 @@ pts2_single <- linkinv(apply(apply(m2z_av_sim$fixef, 1, function(x) p_single %*%
 
 # Lower and upper quantiles for point predictions, SINGLE turbine:
 qtls_single <- linkinv(apply(apply(m2z_av_sim$fixef, 1, function(x) p_single %*% x ), 
-                               1, 
-                               function(x) quantile(x, probs=c(0.025, 0.975))))
+                             1, 
+                             function(x) quantile(x, probs=c(0.025, 0.975))))
 
 # PREDICTIONS FOR SINGLE TURBINE:
 preds_single <- data.frame(pts1_single, pts2_single, t(qtls_single))
@@ -832,8 +823,8 @@ pts2_mult <- linkinv(apply(apply(m2z_av_sim$fixef, 1, function(x) p_multp %*% x 
 
 # Lower and upper quantiles for point predictions, SINGLE turbine:
 qtls_mult <- linkinv(apply(apply(m2z_av_sim$fixef, 1, function(x) p_multp %*% x ), 
-                             1, 
-                             function(x) quantile(x, probs=c(0.025, 0.975))))
+                           1, 
+                           function(x) quantile(x, probs=c(0.025, 0.975))))
 
 # PREDICTIONS FOR MULTIPLE TURBINE:
 preds_mult <- data.frame(pts1_mult, pts2_mult, t(qtls_mult))
@@ -921,7 +912,7 @@ p_single_full <- cbind(rep(1,5),          # Intercept (fSECTION 1)
                              c(0,0,1,0,0),# Interaction, fsection 3
                              c(0,0,0,1,0),# Interaction, fsection 4
                              c(0,0,0,0,1))*-0.5639652 # fsection 5 - SINGLE TURB
-                      )
+)
 p_mult_full   <- cbind(rep(1,5),          # Intercept (fSECTION 1)
                        c(0,1,0,0,0),      # fSECTION 2
                        c(0,0,1,0,0),      # fSECTION 3
@@ -961,11 +952,11 @@ arrows(bars_single, pts_single_full[,2],
        code=3, length=0.1, angle=90)
 
 bars_mult <- barplot(pts_mult_full$mean, 
-                       ylim=c(0, max(c(pts_single_full[,3], pts_mult_full[,3]))),
-                       names.arg=c('0-100','100-200','200-300','300-400','400-500'),
-                       main='Multiple turbines',
-                       xlab='Distance band (m)',
-                       ylab='Probability of a bat pass / ha'
+                     ylim=c(0, max(c(pts_single_full[,3], pts_mult_full[,3]))),
+                     names.arg=c('0-100','100-200','200-300','300-400','400-500'),
+                     main='Multiple turbines',
+                     xlab='Distance band (m)',
+                     ylab='Probability of a bat pass / ha'
 )
 arrows(bars_mult, pts_mult_full[,2], 
        bars_mult, pts_mult_full[,3], 
@@ -993,28 +984,28 @@ sim_ALL <- function(mod) {
     simdat$OCC_PIPS <- as.vector(unlist(simulate(mod)))
     sim_fit <- update(mod, .~., data=simdat)
     out <- rbind(out, 
-      c(
-        predict(sim_fit, type='response', re.form=NA, newdata=data.frame(
-          fSECTION=as.factor(1:5),
-          c.TURB=rep(-0.5639652, 5),
-          z.MINTEMP=rep(0, 5),
-          z.DAYNO=rep(0, 5),
-          z.TTMIDN=rep(0, 5),
-          z.WINDS=rep(0, 5),
-          z.EDGED=rep(0, 5),
-          z.pTREE=rep(0, 5))
-          ),
-        predict(sim_fit, type='response', re.form=NA, newdata=data.frame(
-          fSECTION=as.factor(1:5),
-          c.TURB=rep(0.4360348, 5),
-          z.MINTEMP=rep(0, 5),
-          z.DAYNO=rep(0, 5),
-          z.TTMIDN=rep(0, 5),
-          z.WINDS=rep(0, 5),
-          z.EDGED=rep(0, 5),
-          z.pTREE=rep(0, 5))
-          )
-        )
+                 c(
+                   predict(sim_fit, type='response', re.form=NA, newdata=data.frame(
+                     fSECTION=as.factor(1:5),
+                     c.TURB=rep(-0.5639652, 5),
+                     z.MINTEMP=rep(0, 5),
+                     z.DAYNO=rep(0, 5),
+                     z.TTMIDN=rep(0, 5),
+                     z.WINDS=rep(0, 5),
+                     z.EDGED=rep(0, 5),
+                     z.pTREE=rep(0, 5))
+                   ),
+                   predict(sim_fit, type='response', re.form=NA, newdata=data.frame(
+                     fSECTION=as.factor(1:5),
+                     c.TURB=rep(0.4360348, 5),
+                     z.MINTEMP=rep(0, 5),
+                     z.DAYNO=rep(0, 5),
+                     z.TTMIDN=rep(0, 5),
+                     z.WINDS=rep(0, 5),
+                     z.EDGED=rep(0, 5),
+                     z.pTREE=rep(0, 5))
+                   )
+                 )
     )
   }
   return(out)
