@@ -56,7 +56,6 @@ bats$TURB <- relevel(bats$TURB, ref="single")
 bats_nona <- bats[!is.na(bats$WINDS),]
 bats_nona <- droplevels(bats_nona)
 
-
 ###
 ###
 ### 1. SELECT HABITAT DESCRIPTORS USING SEPARATE MODEL SELECTION.
@@ -159,101 +158,21 @@ subset(modset_habz1, delta<10)
 cor(subset(bats_nona, select=c('D_BUI','D_WAT','EDGED','pTREE')))
 corrplot(cor(subset(bats_nona, select=c('D_BUI','D_WAT','EDGED','pTREE'))))
 
-# # Second AIC based selection, exclude edge density:
-# mod_hab2 <- glmer(OCC_PIPS ~ pBUILD + pTREE + pRDTRK + pROADS + pROADS + pRGRAS + 
-#                     D_LIN + D_BUI + D_WAT + D_TRE + (1|SITE/TRSCT), offset=log(AREA_ha), 
-#                   data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail')
-# mod_habz2 <- standardize(mod_hab2)
-# 
-# modset_habz2 <- dredge(mod_habz2, 
-#                        subset=
-#                          !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-#                          !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-#                          !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
-#                          !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
-#                          !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
-#                          !(z.pBUILD && z.D_BUI) &&
-#                          !(z.pTREE && z.D_TRE) &&
-#                          !(z.pRDTRK && z.pROADS)
-#                        , evaluate=F)
-# length(modset_habz2)
-# modset_habz2 <- pdredge(mod_habz2, cluster=clust,
-#                        subset=
-#                          !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-#                          !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-#                          !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
-#                          !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
-#                          !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
-#                          !(z.pBUILD && z.D_BUI) &&
-#                          !(z.pTREE && z.D_TRE) &&
-#                          !(z.pRDTRK && z.pROADS)
-#                        , trace=T)
-# save(modset_habz2, file='modset_habz2.Rdata')
-# stopCluster(clust)
-# subset(modset_habz2, delta<4)
 
-# More hab variables retained - use original hab set (D_BUI, D_WAT, EDGED and pTREE)
+### Summary table of ALL unstandardised habitat variables:
+TAB_all_hab <- 
+  as.data.frame(
+  rbind(round(apply(bats_nona[,gsub("z.", "",names(data.frame(modset_habz1)[,2:11]))],2,mean),2),
+        round(apply(bats_nona[,gsub("z.", "",names(data.frame(modset_habz1)[,2:11]))],2,median),2),
+        round(apply(bats_nona[,gsub("z.", "",names(data.frame(modset_habz1)[,2:11]))],2,sd),2),
+        round(apply(bats_nona[,gsub("z.", "",names(data.frame(modset_habz1)[,2:11]))],2,min),2),
+        round(apply(bats_nona[,gsub("z.", "",names(data.frame(modset_habz1)[,2:11]))],2,max),2)
+        ))
+row.names(TAB_all_hab) <- c('Mean','Median','Std. dev.','Min.','Max.')
+# names(TAB_all_hab) <- c('Dist. to buildings','Dist. to linear features','Dist. to trees','Dist. to water',
+#                                'Edge density','Prop. buildings','Prop. road/tracks','Prop. rough grassland','Prop. roadsides','Prop. woodland')
+TAB_all_hab <- t(TAB_all_hab)
 
-
-# Check BIC selection:
-# clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
-# clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
-# clusterExport(clust, "bats_nona")
-# clusterExport(clust, "glmer")
-# clusterExport(clust, "fixef")
-# system.time({
-#   modset_habz1_BIC <- pdredge(mod_habz1, cluster=clust,
-#                           subset=
-#                             !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-#                             !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-#                             !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
-#                             !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
-#                             !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
-#                             !(z.pBUILD && z.D_BUI) &&
-#                             !(z.pTREE && z.D_TRE) &&
-#                             !(z.pRDTRK && z.pROADS) &&
-#                             !(z.pRDTRK && z.EDGED) &&
-#                             !(z.D_LIN && z.EDGED)
-#                           , rank='BIC', trace=T)
-# })
-# # user  system elapsed 
-# # 1.651   0.700  43.930 
-# stopCluster(clust)
-# save(modset_habz1_BIC, file='modset_habz1_BIC.Rdata')
-# subset(modset_habz1_BIC, delta<4)
-# subset(modset_habz1_BIC, delta<10)
-# 
-# # Only EDGED and pTREE following BIC selection.
-# 
-# # Check DIC selection:
-# clusterType <- if(length(find.package("snow", quiet = TRUE))) "SOCK" else "PSOCK"
-# clust <- try(makeCluster(getOption("cl.cores", 8), type = clusterType))
-# clusterExport(clust, "bats_nona")
-# clusterExport(clust, "glmer")
-# clusterExport(clust, "fixef")
-# system.time({
-#   modset_habz1_DIC <- pdredge(mod_habz1, cluster=clust,
-#                               subset=
-#                                 !(z.pBUILD && (z.pTREE | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-#                                 !(z.pTREE && (z.pBUILD | z.pRDTRK | z.pROADS | z.pRGRAS )) &&
-#                                 !(z.pRDTRK && (z.pTREE  | z.pBUILD | z.pROADS | z.pRGRAS )) &&
-#                                 !(z.pROADS && (z.pTREE | z.pRDTRK | z.pBUILD | z.pRGRAS )) &&
-#                                 !(z.pRGRAS && (z.pTREE | z.pRDTRK | z.pROADS | z.pBUILD )) &&
-#                                 !(z.pBUILD && z.D_BUI) &&
-#                                 !(z.pTREE && z.D_TRE) &&
-#                                 !(z.pRDTRK && z.pROADS) &&
-#                                 !(z.pRDTRK && z.EDGED) &&
-#                                 !(z.D_LIN && z.EDGED)
-#                               , rank='DIC', trace=T)
-# })
-# # user  system elapsed 
-# # 1.635   0.682  44.355
-# stopCluster(clust)
-# save(modset_habz1_DIC, file='modset_habz1_DIC.Rdata')
-# subset(modset_habz1_DIC, delta<4)
-# subset(modset_habz1_DIC, delta<10)
-# 
-# # For DIC, use D_BUI, D_TRE, D_WAT, EDGED, pROADS, and pTREE.
 
 ###
 ### OCCURRENCE MODELS (PROBABILITY OF A PASS)
@@ -321,18 +240,7 @@ summary(m1z_av)
 
 ### "Simpler habitat" set: GLMM with nested RE. Only those hab vars that are present in all four d<4 hab models.
 ### (so that's EDGED and pTREE)
-# system.time({
-#   m2_def <- glmer(OCC_PIPS  ~ fSECTION*TURB + 
-#                 MINTEMP + 
-#                 DAYNO +
-#                 TTMIDN +
-#                 I(TTMIDN^2) + 
-#                 WINDS +
-#                 EDGED +
-#                 pTREE + 
-#                 (1|SITE/TRSCT), offset=log(AREA_ha), 
-#               data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail')
-#   })
+
 system.time({
   m2 <- glmer(OCC_PIPS  ~ fSECTION*TURB + 
                 MINTEMP + 
@@ -348,13 +256,8 @@ system.time({
   ) })
 
 # Standardise predictors:
-# m2z_def <- standardize(m2_def)
 m2z <- standardize(m2)
-
-# m2z_def_set1 <- dredge(m2z_def, subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), evaluate=F)
 m2z_set1 <- dredge(m2z, subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), evaluate=F)
-
-# length(m2z_def_set1)
 length(m2z_set1)
 
 # Set up cluster:
@@ -386,6 +289,13 @@ system.time({
 load('m2z_set1.Rdata')
 subset(m2z_set1, delta<4)
 
+### Summary model selection subset table:
+TAB_mainmod_subset <- data.frame(subset(m2z_set1, delta<4))
+TAB_mainmod_subset <- cbind(round(TAB_mainmod_subset[,!is.factor.df(TAB_mainmod_subset)],3), TAB_mainmod_subset[,is.factor.df(TAB_mainmod_subset)])
+TAB_mainmod_subset <- TAB_mainmod_subset[,names(data.frame(subset(m2z_set1, delta<4)))]
+row.names(TAB_mainmod_subset) <- NULL
+TAB_mainmod_subset <- rbind(TAB_mainmod_subset, data.frame(m2z_set1[which(row.names(m2z_set1)==0),]))
+
 # m2z_av <- model.avg(m2z_set1, delta<4, fit=T, trace=T)
 # save(m2z_av, file='m2z_av.Rdata')
 load('m2z_av.Rdata')
@@ -399,6 +309,51 @@ coefTable(m2z_av, full=FALSE) # Averaged parameters WITHOUT shrinkage (natural a
 #save(m2z_set1_mods, file='m2z_set1_mods.Rdata')
 load('m2z_set1_mods.Rdata')
 
+### Table of summary statistics of UNSTANDARDISED inputs to model m2z (so from model m2):
+
+m2_dat <- attr(m2,'frame')[,2:10]
+m2_dat_covs <- m2_dat[,!is.factor.df(m2_dat)]
+TAB_main_model_inputs_summary <- as.data.frame(rbind(
+  apply(m2_dat_covs, 2, mean),
+  apply(m2_dat_covs, 2, median),
+  apply(m2_dat_covs, 2, sd),
+  apply(m2_dat_covs, 2, min),
+  apply(m2_dat_covs, 2, max)
+  ))
+row.names(TAB_main_model_inputs_summary) <- c('Mean','Median','Std. dev','Min.','Max.')
+TAB_main_model_inputs_summary <- t(round(TAB_main_model_inputs_summary,3))
+
+### Summary tables of 'model averaged' parameter estimates and parameter importance ('weight') for presentation.
+TAB_coefs_av <- round(as.data.frame(coefTable(m2z_av, full=TRUE)),3)
+# row.names(coefs_av) <- c('Intercept', 
+#                          'Dist. band 2 (100-200m)', 
+#                          'Dist. band 3 (200-300m)', 
+#                          'Dist. band 4 (300-400m)',
+#                          'Dist. band 5 (400-500m)',
+#                          'Julian day',
+#                          'Edge density',
+#                          'Prop. woodland',
+#                          'Time to midnight',
+#                          'Time to midnight^2',
+#                          'Wind speed',
+#                          'No. turbines',
+#                          'Min. temperature over 24h',
+#                          'No. turbines * Dist. band (2)',
+#                          'No. turbines * Dist. band (3)',
+#                          'No. turbines * Dist. band (4)',
+#                          'No. turbines * Dist. band (5)'
+#                          )
+TAB_imp <- summary(m2z_av)$importance
+# row.names(imp) <- c('Time to midnight^2', 
+#                     'Julian day', 
+#                     'Edge density', 
+#                     'Prop. woodland', 
+#                     'Time to midnight', 
+#                     'Wind speed', 
+#                     'Dist. band', 
+#                     'No. turbines', 
+#                     'Min. temp. over 24h', 
+#                     'No. turbines * Dist. band')
 
 ###
 ### PLOT PREDICTIONS: prediction interval by sim():
