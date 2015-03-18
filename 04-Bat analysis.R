@@ -13,6 +13,7 @@ library(MuMIn)
 library(snow)
 library(corrplot)
 library(plyr)
+library(reshape)
 
 source('../../../000_R/RSimExamples/helpjm.r')
 
@@ -390,8 +391,8 @@ subset(m2z_set1, delta<4)
 load('m2z_av.Rdata')
 vcov(m2z_av)
 summary(m2z_av)
-summary(m2z_av)$avg.modelcoefTable(m2z_av, full=TRUE) # "Fully" averaged parameters; i.e. with shrinkage (zero-method)
-summary(m2z_av)$avg.modelcoefTable(m2z_av, full=FALSE) # Averaged parameters WITHOUT shrinkage (natural average)
+coefTable(m2z_av, full=TRUE) # "Fully" averaged parameters; i.e. with shrinkage (zero-method)
+coefTable(m2z_av, full=FALSE) # Averaged parameters WITHOUT shrinkage (natural average)
 
 ### Store list of d<4 models:
 #m2z_set1_mods <- get.models(m2z_set1, subset=delta<4, cluster=clust)
@@ -671,11 +672,100 @@ barplot(multiples, beside=T, xlab='Averaging method', col=rep('grey',5))
 
 
 # Use manual prediction averaging to calculate both point predictions and simmed credible intervals:
-allpreds_single <- as.data.frame(NULL)
-for(i in 1:length(m2z_set1_mods)) {
-  s_fixef_i <- attr(sim(m2z_set1_mods[[i]], 1000),'fixef')
-  
+
+# Prediction data frame for SINGLE:
+nd_single <- data.frame(
+  fSECTION=factor(1:5),
+  c.TURB=rep(c.turb[1],5),
+  z.MINTEMP=rep(0,5),
+  z.DAYNO=rep(0,5),
+  z.TTMIDN=rep(0,5),
+  z.WINDS=rep(0,5),
+  z.EDGED=rep(0,5),
+  z.pTREE=rep(0,5),
+  AREA_ha=rep(1,5)
+  )
+nd_multiple <- data.frame(
+  fSECTION=factor(1:5),
+  c.TURB=rep(c.turb[2],5),
+  z.MINTEMP=rep(0,5),
+  z.DAYNO=rep(0,5),
+  z.TTMIDN=rep(0,5),
+  z.WINDS=rep(0,5),
+  z.EDGED=rep(0,5),
+  z.pTREE=rep(0,5),
+  AREA_ha=rep(1,5)
+)
+# Test predictions with simmed parameters from a single model:
+m <- m2z_set1_mods[[1]]
+m_sim <- sim(m, 1000)
+m_sim_fe <- attr(m_sim, 'fixef')
+predict(m, newdata=nd_single, newparams=list(beta=m_sim_fe[1,], theta=getME(m, 'theta')), type='response', re.form=NA)
+predict(m, newdata=nd_single, newparams=list(beta=m_sim_fe[2,], theta=getME(m, 'theta')), type='response', re.form=NA)
+
+# Now, loop through each of the best models.
+# For each, simulate K parameters.
+# For each, predict response based on K parameters.
+# Store all K parameters.
+
+mnqtl <- function(x) {
+  c(mean(x), quantile(x, probs=c(0.025,0.975)))
 }
+mn_single <- as.data.frame(NULL)
+lo_single <- as.data.frame(NULL)
+hi_single <- as.data.frame(NULL)
+mn_multiple <- as.data.frame(NULL)
+lo_multiple <- as.data.frame(NULL)
+hi_multiple <- as.data.frame(NULL)
+for (i in 1:length(m2z_set1_mods)) {
+  m <- m2z_set1_mods[[i]]
+  m_sim <- sim(m, 1000)
+  m_sim_fe <- attr(m_sim, 'fixef')
+
+  m_preds_single <- apply(m_sim_fe, 1, function(x) predict(m, 
+                                                    newdata=nd_single, 
+                                                    newparams=list(beta=x, theta=getME(m,'theta')), 
+                                                    type='response', 
+                                                    re.form=NA)
+                          )
+  m_preds_multiple <- apply(m_sim_fe, 1, function(x) predict(m, 
+                                                           newdata=nd_multiple, 
+                                                           newparams=list(beta=x, theta=getME(m,'theta')), 
+                                                           type='response', 
+                                                           re.form=NA)
+                            )
+  mn_single <- rbind(mn_single, apply(m_preds_single, 1, mean))
+  lo_single <- rbind(lo_single, apply(m_preds_single, 1, function(x) quantile(x, probs=c(0.025))))
+  hi_single <- rbind(hi_single, apply(m_preds_single, 1, function(x) quantile(x, probs=c(0.975))))
+  mn_multiple <- rbind(mn_multiple, apply(m_preds_multiple, 1, mean))
+  lo_multiple <- rbind(lo_multiple, apply(m_preds_multiple, 1, function(x) quantile(x, probs=c(0.025))))
+  hi_multiple <- rbind(hi_multiple, apply(m_preds_multiple, 1, function(x) quantile(x, probs=c(0.975))))
+}
+
+wtd_mn_single <- apply(mn_single, 2, function(x) wtd.mean(x, weights=subset(m2z_set1,delta<4)$weight))
+wtd_lo_single <- apply(lo_single, 2, function(x) wtd.mean(x, weights=subset(m2z_set1,delta<4)$weight))
+wtd_hi_single <- apply(hi_single, 2, function(x) wtd.mean(x, weights=subset(m2z_set1,delta<4)$weight))
+wtd_mn_multiple <- apply(mn_multiple, 2, function(x) wtd.mean(x, weights=subset(m2z_set1,delta<4)$weight))
+wtd_lo_multiple <- apply(lo_multiple, 2, function(x) wtd.mean(x, weights=subset(m2z_set1,delta<4)$weight))
+wtd_hi_multiple <- apply(hi_multiple, 2, function(x) wtd.mean(x, weights=subset(m2z_set1,delta<4)$weight))
+
+plot(1:5, c(0,0,0,1,1), xlim=c(0.5,5.5), ylim=c(0,.6), type='n', xaxt='n',
+     xlab="Distance from turbine(s)",
+     ylab="Predicted probability of a bat pass / ha")
+axis(1, at=1:5, labels=c('0-100m','100-200m','200-300m','300-400m','400-500m'))
+offset <- 0.1
+for(i in 1:5){
+  lines(c(i-offset,i-offset),c(wtd_lo_single[i], wtd_hi_single[i]))
+  lines(c(i+offset,i+offset),c(wtd_lo_multiple[i], wtd_hi_multiple[i]))
+}
+points(1:5-offset, wtd_mn_single, cex=1.5, pch=21, col='black', bg='white')
+points(1:5+offset, wtd_mn_multiple, cex=1.5, pch=16)
+#Compare predictions above with automated predictions (predict.averaging()):
+#points(1:5-offset, pred_av_single, pch=16, col='blue')
+#points(1:5+offset, pred_av_multiple, pch=16, col='red')
+
+
+
 
 
 # Prediction intervals cf. Bolker:
