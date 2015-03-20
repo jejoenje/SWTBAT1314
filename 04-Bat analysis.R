@@ -399,7 +399,7 @@ nd_multiple <- data.frame(
 
 ### Load the data from above simulations: 
 load('FIG_predictions1.Rdata')
-load('m2z_set1.Rdata')
+
 
 ### So for want of a more elegant way of summarising, calculate the result as means of means and means of
 ###  quantiles:
