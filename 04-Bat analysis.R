@@ -136,8 +136,8 @@ subset(modset_habz1, delta<10)
 ### So on the basis of AIC selection, let's consider D_BUI, D_WAT, EDGED and pTREE as our hab variables.
 
 ### Correlation between these four variables:
-cor(subset(bats_nona, select=c('D_BUI','D_WAT','EDGED','pTREE')))
-#corrplot(cor(subset(bats_nona, select=c('D_BUI','D_WAT','EDGED','pTREE'))))
+# cor(subset(bats_nona, select=c('D_BUI','D_WAT','EDGED','pTREE')))
+# corrplot(cor(subset(bats_nona, select=c('D_BUI','D_WAT','EDGED','pTREE'))))
 
 ### Summary table of ALL unstandardised habitat variables:
 TAB_all_hab <- 
@@ -150,7 +150,7 @@ TAB_all_hab <-
         ))
 row.names(TAB_all_hab) <- c('Mean','Median','Std. dev.','Min.','Max.')
 TAB_all_hab <- t(TAB_all_hab)
-
+save(TAB_all_hab, file='TAB_all_hab.Rdata')
 
 ###
 ### OCCURRENCE MODELS (PROBABILITY OF A PASS)
@@ -159,26 +159,26 @@ TAB_all_hab <- t(TAB_all_hab)
 ### (so that's D_BUI, D_WAT, EDGED and pTREE)
 
 ### First fit unstandardised model:
-m1 <- glmer(OCC_PIPS  ~ fSECTION*TURB + 
-              MINTEMP + 
-              DAYNO +
-              TTMIDN +
-              I(TTMIDN^2) + 
-              WINDS +
-              D_BUI + 
-              D_WAT +
-              EDGED +
-              pTREE + 
-              (1|SITE/TRSCT), offset=log(AREA_ha), 
-            data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail', 
-            control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
+# m1 <- glmer(OCC_PIPS  ~ fSECTION*TURB + 
+#               MINTEMP + 
+#               DAYNO +
+#               TTMIDN +
+#               I(TTMIDN^2) + 
+#               WINDS +
+#               D_BUI + 
+#               D_WAT +
+#               EDGED +
+#               pTREE + 
+#               (1|SITE/TRSCT), offset=log(AREA_ha), 
+#             data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail', 
+#             control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
 
 ### Standardise predictors:
-m1z <- standardize(m1)
+# m1z <- standardize(m1)
 
 ### Build full model set to check length:
-m1z_set1 <- dredge(m1z, subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), evaluate=F)
-length(m1z_set1)
+# m1z_set1 <- dredge(m1z, subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), evaluate=F)
+# length(m1z_set1)
 
 ### Set up cluster and run model selection procedure:
 
@@ -197,17 +197,17 @@ length(m1z_set1)
 # stopCluster(clust)
 
 ### Load the result from the full model selection procedure:
-load('m1z_set1.Rdata')
-subset(m1z_set1, delta<4)
-subset(m1z_set1, delta<2)
+# load('m1z_set1.Rdata')
+# subset(m1z_set1, delta<4)
+# subset(m1z_set1, delta<2)
 
 ### Run model averageing on delta<4 AIC set, and store the fits of each:
 # m1z_av <- model.avg(m1z_set1, delta<4, fit=T)
 # save(m1z_av, file='m1z_av.Rdata')
 
 ### Load results from model averaging above:
-load('m1z_av.Rdata')
-summary(m1z_av)
+# load('m1z_av.Rdata')
+# summary(m1z_av)
 
 
 
@@ -228,6 +228,7 @@ system.time({
               data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail',
               control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7))
   ) })
+save(m2, file='m2.Rdata')
 
 ### Standardise predictors:
 
@@ -235,6 +236,13 @@ system.time({
 m2z <- standardize(m2)
 ### Save this standardised model:
 save(m2z, file='m2z.Rdata')
+
+### Null model (intercept only) - need this for easy reference later:
+m2_null <- glmer(OCC_PIPS  ~ 1 + 
+                   (1|SITE/TRSCT), offset=log(AREA_ha), 
+                 data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail',
+                 control=glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e7)))
+save(m2_null, file='m2_null.Rdata')
 
 m2z_set1 <- dredge(m2z, subset=dc(z.TTMIDN, `I(z.TTMIDN^2)`), evaluate=F)
 length(m2z_set1)
@@ -260,10 +268,18 @@ subset(m2z_set1, delta<4)
 
 ### Summary model selection subset table:
 TAB_mainmod_subset <- data.frame(subset(m2z_set1, delta<4))
-TAB_mainmod_subset <- rbind(TAB_mainmod_subset, data.frame(m2z_set1)[which(row.names(m2z_set1)==0),])
+### Add marginal and conditional R2:
+TAB_mainmod_subset$mR2 <- NA
+TAB_mainmod_subset$cR2 <- NA
+for(i in 1: length(m2z_set1_mods)) {
+  TAB_mainmod_subset$mR2[i] <- r2mm(m2z_set1_mods[[i]])$R2[1]
+  TAB_mainmod_subset$cR2[i] <- r2mm(m2z_set1_mods[[i]])$R2[2]
+}
+TAB_mainmod_subset <- rbind(TAB_mainmod_subset,cbind(data.frame(m2z_set1)[which(row.names(m2z_set1)==0),],mR2=r2mm(m2_null)$R2[1],cR2=r2mm(m2_null)$R2[2]))
 TAB_mainmod_subset <- cbind(round(TAB_mainmod_subset[,!is.factor.df(TAB_mainmod_subset)],3), TAB_mainmod_subset[,is.factor.df(TAB_mainmod_subset)])
-TAB_mainmod_subset <- TAB_mainmod_subset[,names(data.frame(subset(m2z_set1, delta<4)))]
+TAB_mainmod_subset <- TAB_mainmod_subset[,c(names(data.frame(subset(m2z_set1, delta<4))),'mR2','cR2')]
 row.names(TAB_mainmod_subset) <- NULL
+save(TAB_mainmod_subset, file='TAB_mainmod_subset.Rdata')
 
 ### Run model averaging on above model set:
 # m2z_av <- model.avg(m2z_set1, delta<4, fit=T, trace=T)
@@ -293,10 +309,13 @@ TAB_main_model_inputs_summary <- as.data.frame(rbind(
   ))
 row.names(TAB_main_model_inputs_summary) <- c('Mean','Median','Std. dev','Min.','Max.')
 TAB_main_model_inputs_summary <- t(round(TAB_main_model_inputs_summary,2))
+save(TAB_main_model_inputs_summary, file='TAB_main_model_intputs_summary.Rdata')
 
 ### Summary tables of 'model averaged' parameter estimates and parameter importance ('weight') for presentation.
 TAB_coefs_av <- round(as.data.frame(coefTable(m2z_av, full=TRUE)),3)
 TAB_imp <- summary(m2z_av)$importance
+save(TAB_coefs_av, file='TAB_coefs_av.Rdata')
+save(TAB_imp, file='TAB_imp.Rdata')
 
 ###
 ### PLOT PREDICTIONS: prediction interval by sim():
@@ -380,6 +399,7 @@ nd_multiple <- data.frame(
 
 ### Load the data from above simulations: 
 load('FIG_predictions1.Rdata')
+load('m2z_set1.Rdata')
 
 ### So for want of a more elegant way of summarising, calculate the result as means of means and means of
 ###  quantiles:
@@ -408,9 +428,11 @@ FIG1 <- function() {
   
 }; FIG1()
 
+obsdat <- subset(bats_nona, select=c('OCC_PIPS','fSECTION','TURB'))
+
 FIG2 <- function() {
   bars <- barplot(tapply(obsdat$OCC_PIPS, list(obsdat$TURB, obsdat$fSECTION), mean),beside=T,ylim=c(0,0.5), 
-                  col=c('white','grey'), xaxt='n', xlab='Distance band', ylab='Probability of a bat pass / ha')
+                  col=c('white','grey'), xaxt='n', xlab='Distance band', ylab='Probability of a Pipistrelle bat pass / ha')
   axis(1, at=apply(bars,2,mean), labels=c('0-100m','100-200m','200-300m','300-400m','400-500m'))
   for(i in 1:length(bars[1,])) {
 #     lines(c(bars[1,][i],bars[1,][i]), c(wtd_lo_single[i],wtd_hi_single[i]))
