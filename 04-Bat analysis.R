@@ -266,6 +266,11 @@ length(m2z_set1)
 load('m2z_set1.Rdata')
 subset(m2z_set1, delta<4)
 
+### Store list of d<4 models:
+#m2z_set1_mods <- get.models(m2z_set1, subset=delta<4, cluster=clust)
+#save(m2z_set1_mods, file='m2z_set1_mods.Rdata')
+load('m2z_set1_mods.Rdata')
+
 ### Summary model selection subset table:
 TAB_mainmod_subset <- data.frame(subset(m2z_set1, delta<4))
 ### Add marginal and conditional R2:
@@ -292,10 +297,7 @@ summary(m2z_av)
 coefTable(m2z_av, full=TRUE) # "Fully" averaged parameters; i.e. with shrinkage (zero-method)
 coefTable(m2z_av, full=FALSE) # Averaged parameters WITHOUT shrinkage (natural average)
 
-### Store list of d<4 models:
-#m2z_set1_mods <- get.models(m2z_set1, subset=delta<4, cluster=clust)
-#save(m2z_set1_mods, file='m2z_set1_mods.Rdata')
-load('m2z_set1_mods.Rdata')
+
 
 ### Table of summary statistics of UNSTANDARDISED inputs to model m2z (so from model m2):
 m2_dat <- attr(m2,'frame')[,2:10]
