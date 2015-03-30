@@ -86,6 +86,7 @@ mod_hab1 <- glmer(OCC_PIPS ~ pBUILD + pTREE + pRDTRK + pROADS + pROADS + pRGRAS 
                   data=bats_nona, family='binomial'(link='cloglog'), na.action='na.fail')
 ### Standardize:
 mod_habz1 <- standardize(mod_hab1)
+#save(mod_habz1, file='mod_habz1.Rdata')
 
 modset_habz1 <- dredge(mod_habz1, 
                        subset=
